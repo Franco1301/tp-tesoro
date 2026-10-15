@@ -1,0 +1,12 @@
+{
+  "juego": {
+    "nombre": "Búsqueda del tesoro - Plaza 9 de Julio (Martínez)",
+    "duracionMin": 240,
+    "centro": { "lat": -34.4925, "lng": -58.5030 }
+  },
+  "puntos": [
+    { "id": "p01", "nombre": "Punto 1 (EDITAR coordenadas)", "lat": -34.4925, "lng": -58.5030, "radioM": 30 },
+    { "id": "p02", "nombre": "Punto 2 (EDITAR coordenadas)", "lat": -34.4929, "lng": -58.5025, "radioM": 30 },
+    { "id": "p03", "nombre": "Punto 3 (EDITAR coordenadas)", "lat": -34.4921, "lng": -58.5035, "radioM": 30 }
+  ]
+}
