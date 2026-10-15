@@ -5,8 +5,8 @@
     "centro": { "lat": -34.491904, "lng": -58.510346 }
   },
   "puntos": [
-    { "id": "p01", "nombre": "Punto 1 Fuente", "lat": -34.492056, "lng": -58.510722, "radioM": 30 },
-    { "id": "p02", "nombre": "Punto 2 Estatua", "lat": -34.491778, "lng": -58.510083, "radioM": 30 },
-    { "id": "p03", "nombre": "Punto 3 Mesas Ajedrez", "lat": -34.491622, "lng": -58.510007, "radioM": 30 }
+    { "id": "p01", "nombre": "Punto 1 Fuente", "lat": -34.492056, "lng": -58.510722, "radioM": 5 },
+    { "id": "p02", "nombre": "Punto 2 Estatua", "lat": -34.491778, "lng": -58.510083, "radioM": 5 },
+    { "id": "p03", "nombre": "Punto 3 Mesas Ajedrez", "lat": -34.491622, "lng": -58.510007, "radioM": 5 }
   ]
 }
