@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Búsqueda del tesoro</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; }
+  #panel { padding: 10px; background: #f4f4f4; font-size: 15px; max-height: 45%; overflow: auto; }
+  #map { flex: 1; min-height: 200px; }
+  h1 { font-size: 17px; margin: 0 0 6px; }
+  #estado { font-weight: bold; margin: 6px 0; }
+  .dentro { color: #0a7a2f; }
+  .fuera { color: #b00020; }
+  input[type=text] { padding: 8px; font-size: 15px; margin: 2px 4px 2px 0; }
+  button { padding: 8px 12px; font-size: 15px; }
+  #msg { margin: 6px 0; min-height: 1.2em; }
+  #ranking { margin: 6px 0 0; padding-left: 20px; }
+  .oculto { display: none; }
+</style>
+</head>
+<body>
+<div id="panel">
+  <h1 id="titulo">Cargando...</h1>
+
+  <!-- Paso 1: registro del equipo -->
+  <div id="registro" class="oculto">
+    <input type="text" id="nombreEquipo" placeholder="Nombre del equipo" maxlength="40">
+    <input type="text" id="codigoPartida" placeholder="Código de partida" maxlength="20">
+    <button id="btnCrear">Entrar</button>
+  </div>
+
+  <!-- Paso 2: juego -->
+  <div id="juego" class="oculto">
+    <div id="equipo"></div>
+    <div id="reloj"></div>
+    <div id="siguiente"></div>
+    <div id="estado">Esperando ubicación...</div>
+    <div id="detalle"></div>
+    <button id="btnLlegue">Llegué al punto</button>
+    <div id="msg"></div>
+    <b>Ranking</b>
+    <ol id="ranking"></ol>
+    <button id="btnSalir">Salir y crear otro equipo</button>
+  </div>
+
+  <label><input type="checkbox" id="sim"> Modo ensayo: tocá el mapa para simular tu ubicación</label>
+</div>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// Todo lo que depende del lugar o del servidor viene de config.json.
+
+const $ = id => document.getElementById(id);
+const CLAVE_LS = 'tp-tesoro-equipo';
+
+function guardar(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function leer(k)       { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function borrar(k)     { try { localStorage.removeItem(k); } catch (e) {} }
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371000, rad = x => x * Math.PI / 180;
+  const dLat = rad(lat2 - lat1), dLon = rad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 +
+            Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+fetch('config.json').then(r => r.json()).then(iniciar).catch(e => {
+  $('titulo').textContent = 'No se pudo leer config.json (' + e.message + ')';
+});
+
+function iniciar(cfg) {
+  const SRV = cfg.servidor;
+  $('titulo').textContent = cfg.juego.nombre;
+
+  async function rpc(nombre, args) {
+    const r = await fetch(SRV.url + '/rest/v1/rpc/' + nombre, {
+      method: 'POST',
+      headers: { 'apikey': SRV.clave, 'Content-Type': 'application/json' },
+      body: JSON.stringify(args || {})
+    });
+    const t = await r.json().catch(() => null);
+    if (!r.ok) throw new Error((t && (t.message || t.hint)) || ('HTTP ' + r.status));
+    return t;
+  }
+
+  // ---------- Mapa ----------
+  const map = L.map('map').setView([cfg.juego.centro.lat, cfg.juego.centro.lng], 18);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(map);
+  const circulos = {};
+  cfg.puntos.forEach(p => {
+    circulos[p.id] = L.circle([p.lat, p.lng], { radius: p.radioM, color: '#888', fillOpacity: 0.15 })
+      .addTo(map).bindTooltip(p.nombre);
+  });
+
+  // ---------- Estado ----------
+  let equipoId = leer(CLAVE_LS);
+  let codigo = null, inicioMs = 0, offsetMs = 0;
+  let llegadas = [];
+  let pos = null;                      // {lat, lng, precision}
+  let yo = null;
+  const sim = $('sim');
+
+  function siguientePunto() { return cfg.puntos[llegadas.length] || null; }
+
+  function pintar() {
+    cfg.puntos.forEach((p, i) => {
+      const hecho = llegadas.includes(p.id);
+      const esSig = i === llegadas.length;
+      circulos[p.id].setStyle({ color: hecho ? '#0a7a2f' : esSig ? '#1565c0' : '#888' });
+    });
+    const sig = siguientePunto();
+    $('siguiente').textContent = sig
+      ? 'Próximo punto (' + (llegadas.length + 1) + ' de ' + cfg.puntos.length + '): ' + sig.nombre
+      : '¡Completaron todos los puntos!';
+    $('btnLlegue').disabled = !sig;
+  }
+
+  function mostrarJuego(datos) {
+    equipoId = datos.id || equipoId;
+    $('registro').classList.add('oculto');
+    $('juego').classList.remove('oculto');
+    $('equipo').textContent = 'Equipo: ' + datos.equipo + ' (partida ' + datos.codigo + ')';
+    codigo = datos.codigo;
+    inicioMs = Date.parse(datos.inicio);
+    offsetMs = Date.parse(datos.ahora) - Date.now();   // reloj del servidor
+    llegadas = datos.llegadas || [];
+    pintar();
+    cargarRanking();
+  }
+
+  async function recuperar() {
+    if (!equipoId) { $('registro').classList.remove('oculto'); return; }
+    try {
+      const datos = await rpc('mi_progreso', { p_equipo: equipoId });
+      if (!datos) { borrar(CLAVE_LS); equipoId = null; $('registro').classList.remove('oculto'); return; }
+      mostrarJuego(datos);
+    } catch (e) {
+      $('registro').classList.remove('oculto');
+      $('msg').textContent = 'No se pudo recuperar el progreso: ' + e.message;
+    }
+  }
+
+  async function cargarRanking() {
+    if (!codigo) return;
+    try {
+      const filas = await rpc('ranking', { p_codigo: codigo });
+      const ol = $('ranking');
+      ol.textContent = '';
+      filas.forEach(f => {
+        const li = document.createElement('li');
+        li.textContent = f.equipo + ' - ' + f.puntos + ' puntos';
+        ol.appendChild(li);
+      });
+    } catch (e) { /* el ranking es secundario */ }
+  }
+
+  $('btnCrear').onclick = async () => {
+    try {
+      const id = await rpc('crear_equipo', {
+        p_nombre: $('nombreEquipo').value, p_codigo: $('codigoPartida').value });
+      guardar(CLAVE_LS, id);
+      equipoId = id;
+      await recuperar();
+    } catch (e) {
+      alert('No se pudo crear el equipo: ' + e.message);
+    }
+  };
+
+  $('btnSalir').onclick = () => {
+    if (!confirm('¿Salir de este equipo? Podés crear otro. El progreso de este queda guardado en el servidor.')) return;
+    borrar(CLAVE_LS);
+    equipoId = null; codigo = null; inicioMs = 0; llegadas = [];
+    $('juego').classList.add('oculto');
+    $('registro').classList.remove('oculto');
+    $('msg').textContent = '';
+    pintar();
+  };
+
+  $('btnLlegue').onclick = async () => {
+    const sig = siguientePunto();
+    if (!sig) return;
+    if (!pos) { $('msg').textContent = 'Todavía no hay ubicación.'; return; }
+    $('msg').textContent = 'Validando...';
+    try {
+      const r = await rpc('validar_llegada', {
+        p_equipo: equipoId, p_punto: sig.id,
+        p_lat: pos.lat, p_lng: pos.lng, p_precision: pos.precision });
+      if (r.ok) {
+        if (!llegadas.includes(sig.id)) llegadas.push(sig.id);
+        $('msg').textContent = 'Llegada validada por el servidor.';
+        pintar(); cargarRanking();
+      } else if (r.motivo === 'lejos') {
+        $('msg').textContent = 'El servidor dice que estás lejos (' + r.distancia_m + ' m del centro).';
+      } else if (r.motivo === 'fuera_de_orden') {
+        $('msg').textContent = 'Ese no es el punto que sigue. Recuperando progreso...';
+        recuperar();
+      } else {
+        $('msg').textContent = 'Rechazado: ' + r.motivo;
+      }
+    } catch (e) {
+      $('msg').textContent = 'Error de conexión: ' + e.message;
+    }
+  };
+
+  // ---------- Reloj (hora del servidor) y ranking ----------
+  setInterval(() => {
+    if (!inicioMs) return;
+    const s = Math.max(0, Math.floor((Date.now() + offsetMs - inicioMs) / 1000));
+    const pad = n => String(n).padStart(2, '0');
+    $('reloj').textContent = 'Tiempo: ' + pad(Math.floor(s / 3600)) + ':' +
+      pad(Math.floor(s / 60) % 60) + ':' + pad(s % 60);
+  }, 1000);
+  setInterval(cargarRanking, 30000);
+
+  // ---------- Ubicación ----------
+  function actualizar(lat, lng, precision) {
+    pos = { lat, lng, precision };
+    if (!yo) yo = L.circleMarker([lat, lng], { radius: 8, color: '#d81b60' }).addTo(map);
+    yo.setLatLng([lat, lng]);
+    const sig = siguientePunto();
+    if (!sig) { $('estado').textContent = 'Juego completo'; return; }
+    const d = haversine(lat, lng, sig.lat, sig.lng);
+    const dentro = d <= sig.radioM;
+    $('estado').textContent = dentro ? 'Cerca del punto (el servidor confirma al tocar el botón)'
+                                     : 'Fuera de la geocerca';
+    $('estado').className = dentro ? 'dentro' : 'fuera';
+    $('detalle').textContent = 'A ' + Math.round(d) + ' m del próximo punto (radio ' + sig.radioM + ' m)' +
+      (precision ? ' | precisión GPS: ±' + Math.round(precision) + ' m' : '');
+  }
+
+  map.on('click', e => { if (sim.checked) actualizar(e.latlng.lat, e.latlng.lng, null); });
+
+  if (!navigator.geolocation) {
+    $('estado').textContent = 'Este navegador no soporta geolocalización';
+  } else {
+    navigator.geolocation.watchPosition(
+      p => { if (!sim.checked) actualizar(p.coords.latitude, p.coords.longitude, p.coords.accuracy); },
+      err => { $('estado').textContent = 'No se pudo obtener la ubicación (' + err.message + '). Revisá los permisos.'; },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
+    );
+  }
+
+  recuperar();
+}
+</script>
+</body>
+</html>
