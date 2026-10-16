@@ -161,8 +161,9 @@ function iniciar(cfg) {
       });
     } catch (e) { /* el ranking es secundario */ }
   }
-
-  $('btnCrear').onclick = async () => {
+  
+   $('btnCrear').onclick = async () => {
+    $('msg').textContent = '';
     try {
       const id = await rpc('crear_equipo', {
         p_nombre: $('nombreEquipo').value, p_codigo: $('codigoPartida').value });
@@ -170,10 +171,16 @@ function iniciar(cfg) {
       equipoId = id;
       await recuperar();
     } catch (e) {
-      alert('No se pudo crear el equipo: ' + e.message);
+      if (e.message.includes('contraseña')) {
+        alert('La contraseña es incorrecta');
+        $('codigoPartida').value = '';
+        $('codigoPartida').focus();
+      } else {
+        alert('No se pudo crear el equipo: ' + e.message);
+      }
     }
   };
-
+  
   $('btnSalir').onclick = () => {
     if (!confirm('¿Salir de este equipo? Podés crear otro. El progreso de este queda guardado en el servidor.')) return;
     borrar(CLAVE_LS);
