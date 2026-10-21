@@ -1,0 +1,20 @@
+{
+  "servidor": {
+    "url": "https://nssrpusorwpnmeggzrqo.supabase.co",
+    "clave": "sb_publishable_agsmBr8mQtP2-eEHA3zYhg_W_Q48JPW"
+  },
+  "radioPorDefectoM": 15,
+  "plantillas": [
+    { "tipo": "fuente",   "nombre": "Fuente",               "pista": "Buscá el lugar donde el agua nunca deja de caer." },
+    { "tipo": "estatua",  "nombre": "Estatua o monumento",  "pista": "Un personaje de piedra o de bronce te mira desde su pedestal. Encontralo." },
+    { "tipo": "arbol",    "nombre": "Árbol grande",         "pista": "Buscá el árbol más grande y más viejo de la plaza." },
+    { "tipo": "iglesia",  "nombre": "Frente a la iglesia",  "pista": "Parate justo enfrente de la iglesia o capilla más cercana." },
+    { "tipo": "juegos",   "nombre": "Juegos de plaza",      "pista": "Donde los más chicos se divierten: hamacas, toboganes y calesitas." },
+    { "tipo": "ajedrez",  "nombre": "Mesas de ajedrez",     "pista": "Hay un lugar donde se juegan partidas en silencio. Buscá las mesas con tablero." },
+    { "tipo": "banco",    "nombre": "Banco con vista",      "pista": "Un banco desde donde se ve toda la plaza. Sentate un segundo en el mejor." },
+    { "tipo": "mastil",   "nombre": "Mástil o bandera",     "pista": "Mirá hacia arriba: donde flamea la bandera." },
+    { "tipo": "cancha",   "nombre": "Cancha o patio",       "pista": "Buscá una cancha donde siempre hay alguien jugando." },
+    { "tipo": "kiosco",   "nombre": "Kiosco o puesto",      "pista": "Un puesto donde se compran golosinas, diarios o café." },
+    { "tipo": "otro",     "nombre": "Otro (escribí tu pista)", "pista": "" }
+  ]
+}
