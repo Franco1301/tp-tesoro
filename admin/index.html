@@ -43,8 +43,13 @@
   .err { color:var(--bad); } .okm { color:var(--ok); }
   .pin { background:var(--acc); color:#fff; border:2px solid #fff; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; box-shadow:0 1px 4px rgba(0,0,0,.4); }
   .pin.sel { background:#e65100; }
+  .pin.ok { background:#0a7a2f; }
   .codigo { font-size:34px; font-weight:800; letter-spacing:4px; text-align:center; background:var(--card); border:2px dashed var(--acc); border-radius:10px; padding:8px; margin:8px 0; }
-  .equipo { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--line); }
+  .equipo { display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px solid var(--line); cursor:pointer; }
+  .equipo.sel { font-weight:700; color:var(--acc); }
+  .eqDet { padding:4px 0 10px 12px; font-size:13px; border-bottom:1px solid var(--line); }
+  .eqDet ul { margin:2px 0 8px; padding-left:18px; }
+  .eqDet .mut { margin:4px 0 2px; }
   .resp { font-family:ui-monospace, monospace; font-weight:700; }
   @media (max-width: 820px) {
     #app { grid-template-columns:1fr; height:auto; }
@@ -74,6 +79,13 @@
       <input id="nombre" maxlength="60" placeholder="Ej: El tesoro de la Plaza Mayor">
       <label for="password">Contraseña de organizador (mínimo 6 caracteres)</label>
       <input id="password" type="password" autocomplete="new-password" placeholder="La necesitás para volver a este panel">
+
+      <label for="modoJuego">Modo de juego</label>
+      <select id="modoJuego">
+        <option value="presencial">Presencial (GPS)</option>
+        <option value="remoto">A distancia (marcar en el mapa)</option>
+      </select>
+      <p class="mut" id="notaModo"></p>
 
       <h2>1. Elegí el lugar</h2>
       <div class="fila">
@@ -112,6 +124,7 @@
     <!-- ===== Panel de la partida ===== -->
     <div id="vistaPanel" class="oculto">
       <h2 id="panelNombre"></h2>
+      <p class="mut" id="panelModo"></p>
       <p class="mut">Código de partida (compartilo con los jugadores):</p>
       <div class="codigo" id="panelCodigo"></div>
       <div class="fila">
@@ -121,6 +134,7 @@
       <div class="msg okm" id="msgCopiar"></div>
 
       <h2>Equipos y ranking</h2>
+      <p class="mut" id="leyenda"></p>
       <div id="equipos"></div>
       <div class="fila" style="margin-top:8px">
         <button id="btnActualizar">Actualizar</button>
@@ -129,7 +143,7 @@
       <div class="msg" id="msgPanel"></div>
 
       <h2>Puntos y códigos de respaldo</h2>
-      <p class="mut">Cada punto tiene un código manual por si falla el GPS. Escribilo en un cartel en ese lugar. Solo vos lo ves.</p>
+      <p class="mut" id="notaCodigos">Cada punto tiene un código manual por si falla el GPS. Escribilo en un cartel en ese lugar. Solo vos lo ves.</p>
       <ol id="listaPanel"></ol>
       <div class="fila" style="margin-top:8px">
         <button id="btnImprimir">Imprimir</button>
@@ -179,9 +193,10 @@ function iniciar(cfg) {
   let puntos = [];        // {tipo, pista, lat, lng, radioM, marker, circle}
   let sel = -1;
 
-  const icono = (n, activo) => L.divIcon({
+  // estado: 'ok' (visitado, verde), true/'sel' (seleccionado, naranja) o falso (normal)
+  const icono = (n, estado) => L.divIcon({
     className: '', iconSize: [28, 28], iconAnchor: [14, 14],
-    html: '<div class="pin' + (activo ? ' sel' : '') + '">' + Number(n) + '</div>'
+    html: '<div class="pin' + (estado === 'ok' ? ' ok' : estado ? ' sel' : '') + '">' + Number(n) + '</div>'
   });
   function tip(texto) { const s = document.createElement('span'); s.textContent = texto; return s; }
 
@@ -190,6 +205,17 @@ function iniciar(cfg) {
     const o = document.createElement('option');
     o.value = t.tipo; o.textContent = t.nombre; $('tipoNuevo').appendChild(o);
   });
+
+  // ---------- Modo de juego (al crear) ----------
+  function notaModo() {
+    const remoto = $('modoJuego').value === 'remoto';
+    $('radioNuevo').value = remoto ? (cfg.radioPorDefectoRemotoM || 50) : (cfg.radioPorDefectoM || 15);
+    $('notaModo').textContent = remoto
+      ? 'Los jugadores no necesitan estar en el lugar: marcan en el mapa dónde creen que está cada punto (con vista satélite). Escribí pistas que se puedan resolver mirando el mapa o Street View y usá un radio más grande (se sugiere 50 m; máximo 100 m). Se aplica a los puntos que agregues desde ahora.'
+      : 'Los jugadores van hasta cada lugar y se valida con el GPS del celular.';
+  }
+  $('modoJuego').onchange = notaModo;
+  notaModo();
 
   // ---------- Buscar lugar ----------
   async function buscar() {
@@ -327,6 +353,7 @@ function iniciar(cfg) {
     try {
       const r = await rpc('crear_partida', {
         p_nombre: $('nombre').value, p_password: $('password').value, p_lat: lat, p_lng: lng,
+        p_modo: $('modoJuego').value,
         p_puntos: puntos.map(p => ({ tipo: p.tipo, pista: p.pista,
           lat: Number(p.lat.toFixed(6)), lng: Number(p.lng.toFixed(6)), radioM: p.radioM })) });
       guardar(SESION, JSON.stringify({ codigo: r.codigo, password: $('password').value }));
@@ -362,22 +389,53 @@ function iniciar(cfg) {
     dibujarPanel(d);
   }
 
+  let marcasPanel = [];     // {orden, pista, marker, circle}: los puntos dibujados en el mapa del panel
+  let selEquipo = null;     // id del equipo cuyo avance se resalta en el mapa (null = todos)
+  const hora = iso => new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  const nombreTipo = p => { const t = plant(p.tipo); return t ? t.nombre : p.tipo; };
+
+  // Colorea en verde los puntos visitados: por el equipo elegido o, si no hay, por cualquier equipo.
+  function pintarPanel(d) {
+    const cuenta = new Map();
+    d.equipos.forEach(e => e.visitados.forEach(v => cuenta.set(v.orden, (cuenta.get(v.orden) || 0) + 1)));
+    const eqSel = d.equipos.find(e => e.id === selEquipo) || null;
+    if (!eqSel) selEquipo = null;
+    marcasPanel.forEach(m => {
+      const n = cuenta.get(m.orden) || 0;
+      const hecho = eqSel ? eqSel.visitados.some(v => v.orden === m.orden) : n > 0;
+      m.marker.setIcon(icono(m.orden, hecho ? 'ok' : false));
+      m.circle.setStyle({ color: hecho ? '#0a7a2f' : '#1565c0' });
+      const texto = m.orden + '. ' + m.pista + ' — ' + n + '/' + d.equipos.length + ' equipos' + (hecho ? ' ✓' : '');
+      m.circle.setTooltipContent(tip(texto)); m.marker.setTooltipContent(tip(texto));
+    });
+    $('leyenda').textContent = !d.equipos.length ? ''
+      : eqSel ? 'Verde ✓: puntos que encontró «' + eqSel.nombre + '». Tocá el equipo de nuevo para ver todos.'
+      : 'Verde ✓: puntos que ya encontró al menos un equipo. Tocá un equipo para ver sus participantes y solo sus puntos.';
+  }
+
   function dibujarPanel(d) {
     if (modo !== 'panel') {
       modo = 'panel';
-      capa.clearLayers(); puntos = []; sel = -1;
+      capa.clearLayers(); puntos = []; sel = -1; marcasPanel = []; selEquipo = null;
       ['vistaCrear', 'vistaEntrar'].forEach(id => $(id).classList.add('oculto'));
       $('tabs').classList.add('oculto');
       $('vistaPanel').classList.remove('oculto');
       d.puntos.forEach(p => {
-        const c = L.circle([p.lat, p.lng], { radius: p.radioM, color: '#1565c0', fillOpacity: 0.15 }).addTo(capa);
-        c.bindTooltip(tip(p.orden + '. ' + p.pista));
-        L.marker([p.lat, p.lng], { icon: icono(p.orden, false) }).addTo(capa);
+        const circle = L.circle([p.lat, p.lng], { radius: p.radioM, color: '#1565c0', fillOpacity: 0.15 }).addTo(capa);
+        const marker = L.marker([p.lat, p.lng], { icon: icono(p.orden, false) }).addTo(capa);
+        circle.bindTooltip(tip(p.orden + '. ' + p.pista)); marker.bindTooltip(tip(p.orden + '. ' + p.pista));
+        marcasPanel.push({ orden: p.orden, pista: p.pista, marker, circle });
       });
       const b = L.featureGroup(capa.getLayers()).getBounds();
       if (b.isValid()) map.fitBounds(b.pad(0.4), { maxZoom: 19 });
     }
     $('panelNombre').textContent = d.nombre;
+    $('panelModo').textContent = d.modo === 'remoto'
+      ? 'Modo: a distancia. Los jugadores marcan cada lugar en el mapa.'
+      : 'Modo: presencial. Los jugadores validan con el GPS.';
+    $('notaCodigos').textContent = d.modo === 'remoto'
+      ? 'En el modo a distancia los códigos de respaldo no se usan; quedan acá solo por si los necesitás.'
+      : 'Cada punto tiene un código manual por si falla el GPS. Escribilo en un cartel en ese lugar. Solo vos lo ves.';
     $('panelCodigo').textContent = d.codigo;
     $('panelLink').value = new URL('../?p=' + d.codigo, location.href).href;
 
@@ -386,25 +444,71 @@ function iniciar(cfg) {
     else {
       eq.className = '';
       d.equipos.forEach((e, i) => {
-        const fila = document.createElement('div'); fila.className = 'equipo';
+        const abierto = e.id === selEquipo;
+        const caja = document.createElement('div');
+        const fila = document.createElement('div'); fila.className = 'equipo' + (abierto ? ' sel' : '');
+        fila.tabIndex = 0; fila.setAttribute('role', 'button'); fila.setAttribute('aria-expanded', String(abierto));
         const a = document.createElement('span'); a.textContent = (i + 1) + '. ' + e.nombre;
         const b = document.createElement('span');
         b.textContent = e.puntos + '/' + d.puntos.length + ' puntos' +
           (e.usosRespaldo ? ' · ' + e.usosRespaldo + ' con código' : '');
-        fila.append(a, b); eq.appendChild(fila);
+        fila.append(a, b);
+        const alternar = () => { selEquipo = abierto ? null : e.id; dibujarPanel(d); };
+        fila.onclick = alternar;
+        fila.onkeydown = ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); alternar(); } };
+        caja.appendChild(fila);
+
+        if (abierto) {
+          const det = document.createElement('div'); det.className = 'eqDet';
+          const t1 = document.createElement('div'); t1.className = 'mut';
+          t1.textContent = 'Participantes (' + e.participantes.length + ')';
+          det.appendChild(t1);
+          if (!e.participantes.length) {
+            const v = document.createElement('div'); v.textContent = 'Sin registro (equipo creado antes de pedir participantes).';
+            det.appendChild(v);
+          } else {
+            const ul = document.createElement('ul');
+            e.participantes.forEach(p => {
+              const li = document.createElement('li');
+              li.textContent = p.apellido + ', ' + p.nombre + ' — ' + p.edad + (p.edad === 1 ? ' año' : ' años');
+              ul.appendChild(li);
+            });
+            det.appendChild(ul);
+          }
+          const t2 = document.createElement('div'); t2.className = 'mut';
+          t2.textContent = 'Puntos encontrados (' + e.visitados.length + '/' + d.puntos.length + ')';
+          det.appendChild(t2);
+          if (!e.visitados.length) {
+            const v = document.createElement('div'); v.textContent = 'Todavía ninguno.'; det.appendChild(v);
+          } else {
+            const ul = document.createElement('ul');
+            e.visitados.forEach(v => {
+              const p = d.puntos.find(x => x.orden === v.orden);
+              const li = document.createElement('li');
+              li.textContent = '✓ ' + v.orden + '. ' + (p ? nombreTipo(p) : '') + ' — ' + hora(v.creado) + (v.respaldo ? ' (con código)' : '');
+              ul.appendChild(li);
+            });
+            det.appendChild(ul);
+          }
+          caja.appendChild(det);
+        }
+        eq.appendChild(caja);
       });
     }
+    pintarPanel(d);
 
     const ol = $('listaPanel'); ol.textContent = '';
     d.puntos.forEach(p => {
       const li = document.createElement('li'); li.className = 'pt';
-      const t = plant(p.tipo);
       const l1 = document.createElement('div');
-      const n = document.createElement('b'); n.textContent = p.orden + '. ' + (t ? t.nombre : p.tipo) + ' — código: ';
+      const n = document.createElement('b'); n.textContent = p.orden + '. ' + nombreTipo(p) + ' — código: ';
       const c = document.createElement('span'); c.className = 'resp'; c.textContent = p.respaldo;
       l1.append(n, c);
       const l2 = document.createElement('div'); l2.className = 'mut'; l2.textContent = p.pista;
-      li.append(l1, l2); li.onclick = () => map.panTo([p.lat, p.lng]);
+      const cant = d.equipos.filter(e => e.visitados.some(v => v.orden === p.orden)).length;
+      const l3 = document.createElement('div'); l3.className = 'mut';
+      l3.textContent = (cant ? '✓ ' : '') + 'Encontrado por ' + cant + ' de ' + d.equipos.length + ' equipos';
+      li.append(l1, l2, l3); li.onclick = () => map.panTo([p.lat, p.lng]);
       ol.appendChild(li);
     });
   }
@@ -447,4 +551,3 @@ function iniciar(cfg) {
 </script>
 </body>
 </html>
-
