@@ -32,6 +32,18 @@
   details { margin:8px 0; }
   summary { cursor:pointer; color:var(--acc); }
   .fila { display:flex; gap:6px; } .fila input { flex:1; }
+  .modo { background:var(--bg); border:1px dashed var(--acc); border-radius:8px; padding:8px; margin:6px 0; font-size:14px; }
+  .integ { display:grid; grid-template-columns:1fr 1fr 64px 38px; gap:6px; align-items:center; }
+  .integ input { margin:0; padding:8px; min-width:0; }
+  .integ button { padding:8px 0; }
+  #listaParts { display:grid; gap:6px; margin:6px 0; }
+  .cabParts { display:grid; grid-template-columns:1fr 1fr 64px 38px; gap:6px; font-size:12px; color:var(--mut); }
+  button.sec { width:100%; margin-top:6px; }
+  #visitados { list-style:none; margin:4px 0 8px; padding:0; }
+  #visitados li { display:flex; gap:8px; align-items:flex-start; padding:4px 0; border-bottom:1px solid var(--line); font-size:14px; }
+  #visitados .chk { flex:none; width:22px; height:22px; border-radius:50%; background:#0a7a2f; color:#fff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  .pin { background:#1565c0; color:#fff; border:2px solid #fff; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; box-shadow:0 1px 4px rgba(0,0,0,.4); }
+  .pin.ok { background:#0a7a2f; }
 </style>
 </head>
 <body>
@@ -45,10 +57,15 @@
     <div class="msg err" id="msgCodigo"></div>
   </div>
 
-  <!-- Paso 2: nombre del equipo -->
+  <!-- Paso 2: nombre del equipo y participantes -->
   <div id="vistaEquipo" class="oculto">
     <div class="mut" id="infoPartida"></div>
+    <div class="modo oculto" id="infoModo"></div>
     <input id="nombreEquipo" maxlength="40" placeholder="Nombre de tu equipo" autocomplete="off">
+    <b>Participantes</b>
+    <div class="cabParts"><span>Nombre</span><span>Apellido</span><span>Edad</span><span></span></div>
+    <div id="listaParts"></div>
+    <button id="btnAgregarPart" class="sec">+ Agregar participante</button>
     <button id="btnEquipo" class="primary">Entrar al juego</button>
     <div class="msg err" id="msgEquipo"></div>
   </div>
@@ -56,8 +73,10 @@
   <!-- Paso 3: juego -->
   <div id="vistaJuego" class="oculto">
     <div id="equipo" class="mut"></div>
+    <div id="integrantes" class="mut"></div>
     <div>Tiempo: <span id="reloj">00:00:00</span> &middot; <span id="avance"></span></div>
     <div class="pista" id="cajaPista"><small id="pistaTit"></small><span id="pista"></span></div>
+    <div class="modo oculto" id="ayudaRemoto">Juego a distancia: buscá el lugar en el mapa (podés cambiar a vista satélite), tocalo para marcarlo y confirmá.</div>
     <div id="estado" class="mut">Esperando ubicación...</div>
     <button id="btnLlegue" class="primary">Llegué al punto</button>
     <div class="msg" id="msg"></div>
@@ -68,6 +87,10 @@
         <button id="btnResp">Validar</button>
       </div>
     </details>
+    <div id="bloqueVisitados" class="oculto">
+      <b>Puntos encontrados</b>
+      <ul id="visitados"></ul>
+    </div>
     <b>Ranking</b>
     <ol id="ranking"></ol>
     <button id="btnSalir" class="mut">Salir de este equipo</button>
@@ -108,20 +131,76 @@ function iniciar(cfg) {
     return t;
   }
 
-  // ---------- Mapa (solo contexto y tu posición: los puntos NO se muestran) ----------
+  // ---------- Mapa (contexto, tu posición y los puntos que YA encontraron; los que faltan NO se muestran) ----------
   const map = L.map('map').setView([20, 0], 2);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  const calles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
   }).addTo(map);
+  const satelite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 19, attribution: 'Tiles &copy; Esri'
+  });
+  const capaVisitados = L.layerGroup().addTo(map);
   let yo = null, precisionCirculo = null, pos = null, centrado = false;
   const sim = $('sim');
+
+  const PLANT = cfg.plantillas || [];
+  const nombreTipo = tipo => { const t = PLANT.find(x => x.tipo === tipo); return t ? t.nombre : tipo; };
 
   // ---------- Estado ----------
   let equipoId = null, codigo = null, partida = null;
   let inicioMs = 0, offsetMs = 0, finMs = 0, terminado = false;
+  let modo = 'presencial', controlCapas = null;
 
-  function centrar(c) { if (!centrado && c) { map.setView([c.lat, c.lng], 17); centrado = true; } }
+  function centrar(c) { if (!centrado && c) { map.setView([c.lat, c.lng], modo === 'remoto' ? 16 : 17); centrado = true; } }
+
+  function limpiarMarca() {
+    pos = null;
+    if (yo) { map.removeLayer(yo); map.removeLayer(precisionCirculo); yo = null; precisionCirculo = null; }
+  }
+
+  // Presencial: usa el GPS. Remoto: no se pide GPS; el equipo marca el lugar tocando el mapa.
+  function aplicarModo(m) {
+    const nuevo = (m === 'remoto') ? 'remoto' : 'presencial';
+    if (nuevo !== modo) limpiarMarca();
+    modo = nuevo;
+    const remoto = modo === 'remoto';
+    $('ayudaRemoto').classList.toggle('oculto', !remoto);
+    $('estado').classList.toggle('oculto', remoto);
+    $('lblEnsayo').classList.toggle('oculto', remoto || params.get('ensayo') !== '1');
+    $('btnLlegue').textContent = remoto ? 'Confirmar este lugar' : 'Llegué al punto';
+    if (remoto) {
+      dejarDeMirar();
+      if (!controlCapas) controlCapas = L.control.layers({ 'Mapa': calles, 'Satélite': satelite }, null, { position: 'topright' }).addTo(map);
+    } else {
+      if (controlCapas) {
+        map.removeControl(controlCapas); controlCapas = null;
+        if (map.hasLayer(satelite)) map.removeLayer(satelite);
+        if (!map.hasLayer(calles)) calles.addTo(map);
+      }
+      mirar();
+    }
+  }
+
+  // ---------- Puntos ya encontrados: marcados en el mapa y en la lista ----------
+  function pintarVisitados(lista) {
+    capaVisitados.clearLayers();
+    const ul = $('visitados'); ul.textContent = '';
+    $('bloqueVisitados').classList.toggle('oculto', !lista.length);
+    lista.forEach(v => {
+      const icono = L.divIcon({ className: '', iconSize: [28, 28], iconAnchor: [14, 14],
+        html: '<div class="pin ok">' + Number(v.orden) + '</div>' });
+      const tip = document.createElement('span');
+      tip.textContent = v.orden + '. ' + nombreTipo(v.tipo) + ' ✓';
+      L.marker([v.lat, v.lng], { icon: icono, keyboard: false }).bindTooltip(tip).addTo(capaVisitados);
+      const li = document.createElement('li'); li.style.cursor = 'pointer';
+      const chk = document.createElement('span'); chk.className = 'chk'; chk.textContent = '✓';
+      const txt = document.createElement('span'); txt.textContent = v.orden + '. ' + nombreTipo(v.tipo) + ' — ' + v.pista;
+      li.append(chk, txt);
+      li.onclick = () => map.setView([v.lat, v.lng], Math.max(map.getZoom(), 17));
+      ul.appendChild(li);
+    });
+  }
 
   // ---------- Paso 1 y 2: partida y equipo ----------
   async function abrirPartida(cod) {
@@ -132,8 +211,14 @@ function iniciar(cfg) {
       const info = await rpc('partida_info', { p_codigo: cod });
       if (!info) { $('codigoIn').value = cod; $('msgCodigo').textContent = 'No existe una partida con ese código.'; vista('vistaCodigo'); return; }
       codigo = info.codigo; partida = info;
+      aplicarModo(info.modo);
       $('titulo').textContent = info.nombre;
       $('infoPartida').textContent = 'Partida ' + info.codigo + ' · ' + info.totalPuntos + ' puntos';
+      $('infoModo').textContent = info.modo === 'remoto'
+        ? 'Juego a distancia: no hace falta estar en el lugar. Van a marcar cada lugar en el mapa.'
+        : 'Juego presencial: tienen que estar en cada lugar y permitir el acceso a la ubicación del celular.';
+      $('infoModo').classList.remove('oculto');
+      if (!$('listaParts').children.length) agregarParticipante();
       centrar(info.centro);
       vista('vistaEquipo');
     } catch (e) {
@@ -143,14 +228,55 @@ function iniciar(cfg) {
   $('btnCodigo').onclick = () => abrirPartida($('codigoIn').value);
   $('codigoIn').onkeydown = e => { if (e.key === 'Enter') $('btnCodigo').click(); };
 
+  // ---------- Registro de participantes ----------
+  const MAX_PART = 10;
+  function refrescarBtnAgregar() { $('btnAgregarPart').disabled = $('listaParts').children.length >= MAX_PART; }
+  function campo(placeholder, maxLength) {
+    const i = document.createElement('input');
+    i.placeholder = placeholder; i.maxLength = maxLength; i.autocomplete = 'off';
+    i.setAttribute('aria-label', placeholder);
+    return i;
+  }
+  function agregarParticipante() {
+    const lista = $('listaParts');
+    if (lista.children.length >= MAX_PART) return;
+    const f = document.createElement('div'); f.className = 'integ';
+    const nombre = campo('Nombre', 40), apellido = campo('Apellido', 40);
+    const edad = campo('Edad', 3); edad.type = 'number'; edad.min = 1; edad.max = 120; edad.inputMode = 'numeric';
+    const quitar = document.createElement('button');
+    quitar.type = 'button'; quitar.textContent = '✕'; quitar.title = 'Quitar participante';
+    quitar.setAttribute('aria-label', 'Quitar participante');
+    quitar.onclick = () => { if (lista.children.length > 1) { f.remove(); refrescarBtnAgregar(); } };
+    f.append(nombre, apellido, edad, quitar);
+    lista.appendChild(f);
+    refrescarBtnAgregar();
+  }
+  function leerParticipantes() {
+    const salida = [];
+    Array.from($('listaParts').children).forEach((f, i) => {
+      const [n, a, ed] = f.querySelectorAll('input');
+      const nombre = n.value.trim(), apellido = a.value.trim(), edad = Number(ed.value);
+      if (nombre.length < 2 || apellido.length < 2) throw new Error('Participante ' + (i + 1) + ': completá nombre y apellido.');
+      if (!ed.value || !Number.isInteger(edad) || edad < 1 || edad > 120) throw new Error('Participante ' + (i + 1) + ': poné una edad válida (de 1 a 120).');
+      salida.push({ nombre, apellido, edad });
+    });
+    return salida;
+  }
+  $('btnAgregarPart').onclick = agregarParticipante;
+
   $('btnEquipo').onclick = async () => {
     $('msgEquipo').textContent = '';
+    const nombreEquipo = $('nombreEquipo').value.trim();
     try {
-      const id = await rpc('crear_equipo', { p_codigo: codigo, p_nombre: $('nombreEquipo').value });
+      if (nombreEquipo.length < 2) throw new Error('El nombre del equipo es muy corto.');
+      const participantes = leerParticipantes();
+      $('btnEquipo').disabled = true;
+      const id = await rpc('crear_equipo', { p_codigo: codigo, p_nombre: nombreEquipo, p_participantes: participantes });
       guardar(LS, JSON.stringify({ id, codigo }));
       equipoId = id;
       await recuperar();
     } catch (e) { $('msgEquipo').textContent = e.message; }
+    finally { $('btnEquipo').disabled = false; }
   };
   $('nombreEquipo').onkeydown = e => { if (e.key === 'Enter') $('btnEquipo').click(); };
 
@@ -159,8 +285,11 @@ function iniciar(cfg) {
     const d = await rpc('mi_progreso', { p_equipo: equipoId });
     if (!d) { borrar(LS); equipoId = null; throw new Error('No encontramos tu equipo. Creá uno nuevo.'); }
     codigo = d.codigo;
+    aplicarModo(d.modo);
     $('titulo').textContent = d.juego;
     $('equipo').textContent = 'Equipo: ' + d.equipo + ' · partida ' + d.codigo;
+    $('integrantes').textContent = (d.integrantes && d.integrantes.length) ? 'Integrantes: ' + d.integrantes.join(', ') : '';
+    pintarVisitados(d.visitados || []);
     inicioMs = Date.parse(d.inicio);
     offsetMs = Date.parse(d.ahora) - Date.now();            // reloj del servidor
     terminado = d.terminado;
@@ -196,12 +325,24 @@ function iniciar(cfg) {
   async function respuesta(r) {
     if (r.ok) {
       $('msg').className = 'msg okm';
-      $('msg').textContent = r.motivo === 'validado_respaldo' ? 'Código correcto. ¡Siguiente pista!' : '¡Llegaron! Siguiente pista.';
+      $('msg').textContent = r.motivo === 'validado_respaldo' ? 'Código correcto. ¡Siguiente pista!'
+        : (modo === 'remoto' ? '¡Ese es el lugar! Siguiente pista.' : '¡Llegaron! Siguiente pista.');
       $('codigoResp').value = '';
+      if (modo === 'remoto') limpiarMarca();
       await recuperar();
     } else if (r.motivo === 'lejos') {
       $('msg').className = 'msg err';
-      $('msg').textContent = 'Todavía no están en el lugar (a unos ' + r.distanciaM + ' m). Releé la pista.';
+      if (modo === 'remoto') {
+        const frases = {
+          muy_cerca: 'Muy cerca, pero ese no es el lugar exacto. Probá ajustar la marca.',
+          cerca: 'Cerca, pero ese no es el lugar. Releé la pista.',
+          lejos: 'Lejos. Releé la pista y buscá en otra zona del mapa.',
+          muy_lejos: 'Muy lejos de ese lugar. Releé la pista.'
+        };
+        $('msg').textContent = frases[r.cercania] || 'Ese no es el lugar.';
+      } else {
+        $('msg').textContent = 'Todavía no están en el lugar (a unos ' + r.distanciaM + ' m). Releé la pista.';
+      }
     } else if (r.motivo === 'codigo_incorrecto') {
       $('msg').className = 'msg err'; $('msg').textContent = 'Ese código no es el de este punto.';
     } else {
@@ -210,7 +351,13 @@ function iniciar(cfg) {
   }
 
   $('btnLlegue').onclick = async () => {
-    if (!pos) { $('msg').className = 'msg err'; $('msg').textContent = 'Todavía no hay ubicación. Revisá los permisos del navegador.'; return; }
+    if (!pos) {
+      $('msg').className = 'msg err';
+      $('msg').textContent = modo === 'remoto'
+        ? 'Primero tocá el mapa para marcar dónde creen que está el lugar.'
+        : 'Todavía no hay ubicación. Revisá los permisos del navegador.';
+      return;
+    }
     $('msg').className = 'msg'; $('msg').textContent = 'Validando...';
     try {
       await respuesta(await rpc('validar_llegada', {
@@ -227,6 +374,8 @@ function iniciar(cfg) {
   $('btnSalir').onclick = () => {
     if (!confirm('¿Salir de este equipo? Podés crear otro. El progreso queda guardado en el servidor.')) return;
     borrar(LS); equipoId = null; inicioMs = 0;
+    capaVisitados.clearLayers(); limpiarMarca();
+    $('listaParts').textContent = ''; $('nombreEquipo').value = '';
     abrirPartida(codigo);
   };
 
@@ -253,11 +402,16 @@ function iniciar(cfg) {
       ? 'Ubicación lista (precisión ±' + Math.round(precision) + ' m)' + (precision > 40 ? ' — señal débil, salí a un lugar abierto o usá el código' : '')
       : 'Ubicación simulada';
   }
-  map.on('click', e => { if (sim.checked) actualizar(e.latlng.lat, e.latlng.lng, null); });
+  map.on('click', e => {
+    if (modo === 'remoto' || sim.checked) {
+      actualizar(e.latlng.lat, e.latlng.lng, null);
+      if (modo === 'remoto' && !terminado) { $('msg').className = 'msg'; $('msg').textContent = 'Lugar marcado. Si creen que es ese, tocá «Confirmar este lugar».'; }
+    }
+  });
 
   let watchId = null;
   function mirar() {
-    if (watchId !== null || !navigator.geolocation) return;
+    if (modo === 'remoto' || watchId !== null || !navigator.geolocation) return;
     watchId = navigator.geolocation.watchPosition(
       p => { if (!sim.checked) actualizar(p.coords.latitude, p.coords.longitude, p.coords.accuracy); },
       err => { $('estado').textContent = 'No se pudo obtener la ubicación (' + err.message + '). Revisá los permisos.'; },
@@ -266,7 +420,7 @@ function iniciar(cfg) {
   function dejarDeMirar() { if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; } }
   document.addEventListener('visibilitychange', () => { document.hidden ? dejarDeMirar() : mirar(); });
   if (!navigator.geolocation) $('estado').textContent = 'Este navegador no soporta geolocalización';
-  mirar();
+  // El GPS se pide recién cuando se sabe que la partida es presencial (ver aplicarModo).
 
   // ---------- Arranque ----------
   (async () => {
