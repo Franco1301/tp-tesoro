@@ -5,16 +5,73 @@
   },
   "radioPorDefectoM": 15,
   "plantillas": [
-    { "tipo": "fuente",   "nombre": "Fuente",               "pista": "Buscá el lugar donde el agua nunca deja de caer." },
-    { "tipo": "estatua",  "nombre": "Estatua o monumento",  "pista": "Un personaje de piedra o de bronce te mira desde su pedestal. Encontralo." },
-    { "tipo": "arbol",    "nombre": "Árbol grande",         "pista": "Buscá el árbol más grande y más viejo de la plaza." },
-    { "tipo": "iglesia",  "nombre": "Frente a la iglesia",  "pista": "Parate justo enfrente de la iglesia o capilla más cercana." },
-    { "tipo": "juegos",   "nombre": "Juegos de plaza",      "pista": "Donde los más chicos se divierten: hamacas, toboganes y calesitas." },
-    { "tipo": "ajedrez",  "nombre": "Mesas de ajedrez",     "pista": "Hay un lugar donde se juegan partidas en silencio. Buscá las mesas con tablero." },
-    { "tipo": "banco",    "nombre": "Banco con vista",      "pista": "Un banco desde donde se ve toda la plaza. Sentate un segundo en el mejor." },
-    { "tipo": "mastil",   "nombre": "Mástil o bandera",     "pista": "Mirá hacia arriba: donde flamea la bandera." },
-    { "tipo": "cancha",   "nombre": "Cancha o patio",       "pista": "Buscá una cancha donde siempre hay alguien jugando." },
-    { "tipo": "kiosco",   "nombre": "Kiosco o puesto",      "pista": "Un puesto donde se compran golosinas, diarios o café." },
-    { "tipo": "otro",     "nombre": "Otro (escribí tu pista)", "pista": "" }
-  ]
+    {
+      "tipo": "fuente",
+      "nombre": "Fuente",
+      "pista": "Buscá el lugar donde el agua nunca deja de caer."
+    },
+    {
+      "tipo": "estatua",
+      "nombre": "Estatua o monumento",
+      "pista": "Un personaje de piedra o de bronce te mira desde su pedestal. Encontralo."
+    },
+    {
+      "tipo": "arbol",
+      "nombre": "Árbol grande",
+      "pista": "Buscá el árbol más grande y más viejo de la plaza."
+    },
+    {
+      "tipo": "iglesia",
+      "nombre": "Frente a la iglesia",
+      "pista": "Parate justo enfrente de la iglesia o capilla más cercana."
+    },
+    {
+      "tipo": "juegos",
+      "nombre": "Juegos de plaza",
+      "pista": "Donde los más chicos se divierten: hamacas, toboganes y calesitas."
+    },
+    {
+      "tipo": "ajedrez",
+      "nombre": "Mesas de ajedrez",
+      "pista": "Hay un lugar donde se juegan partidas en silencio. Buscá las mesas con tablero."
+    },
+    {
+      "tipo": "banco",
+      "nombre": "Banco con vista",
+      "pista": "Un banco desde donde se ve toda la plaza. Sentate un segundo en el mejor."
+    },
+    {
+      "tipo": "mastil",
+      "nombre": "Mástil o bandera",
+      "pista": "Mirá hacia arriba: donde flamea la bandera."
+    },
+    {
+      "tipo": "cancha",
+      "nombre": "Cancha o patio",
+      "pista": "Buscá una cancha donde siempre hay alguien jugando."
+    },
+    {
+      "tipo": "kiosco",
+      "nombre": "Kiosco o puesto",
+      "pista": "Un puesto donde se compran golosinas, diarios o café."
+    },
+    {
+      "tipo": "otro",
+      "nombre": "Otro (escribí tu pista)",
+      "pista": ""
+    }
+  ],
+  "consentimiento": {
+    "version": "1",
+    "titulo": "Uso de tus datos personales (Ley 25.326)",
+    "parrafos": [
+      "Finalidad: identificar a los equipos, poder contactar a los participantes por temas de la actividad y armar el informe académico del trabajo práctico. No se usan para publicidad ni se ceden a terceros.",
+      "Quién accede: solo la persona que organiza esta partida. Tus datos no aparecen en el ranking, no se publican y no están en el código del proyecto. Los demás equipos solo ven el nombre del equipo.",
+      "Plazo: se borran automáticamente a los 30 días de tu registro, o antes si el organizador los borra al terminar la actividad.",
+      "Tus derechos: podés pedir acceso, rectificación o supresión de tus datos en cualquier momento escribiendo al contacto de abajo. Participar es voluntario, pero sin aceptar este uso no se puede completar el registro.",
+      "El titular de los datos personales tiene la facultad de ejercer el derecho de acceso a los mismos en forma gratuita a intervalos no inferiores a seis meses (art. 14, inc. 3, Ley 25.326). La Agencia de Acceso a la Información Pública (AAIP) es el órgano de control de la Ley 25.326 y atiende denuncias y reclamos por incumplimientos.",
+      "Menores de 18 años: necesitan los datos y la autorización de madre, padre o tutor."
+    ],
+    "contacto": "[COMPLETAR: mail del grupo o del organizador]"
+  }
 }
