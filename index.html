@@ -1,4 +1,4 @@
-<!doctype html>
+ !doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -33,17 +33,16 @@
   summary { cursor:pointer; color:var(--acc); }
   .fila { display:flex; gap:6px; } .fila input { flex:1; }
   .modo { background:var(--bg); border:1px dashed var(--acc); border-radius:8px; padding:8px; margin:6px 0; font-size:14px; }
-  .integ { display:grid; grid-template-columns:1fr 1fr 64px 38px; gap:6px; align-items:center; }
-  .integ input { margin:0; padding:8px; min-width:0; }
-  .integ button { padding:8px 0; }
-  #listaParts { display:grid; gap:6px; margin:6px 0; }
-  .cabParts { display:grid; grid-template-columns:1fr 1fr 64px 38px; gap:6px; font-size:12px; color:var(--mut); }
-  button.sec { width:100%; margin-top:6px; }
-  #visitados { list-style:none; margin:4px 0 8px; padding:0; }
-  #visitados li { display:flex; gap:8px; align-items:flex-start; padding:4px 0; border-bottom:1px solid var(--line); font-size:14px; }
-  #visitados .chk { flex:none; width:22px; height:22px; border-radius:50%; background:#0a7a2f; color:#fff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; }
-  .pin { background:#1565c0; color:#fff; border:2px solid #fff; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; box-shadow:0 1px 4px rgba(0,0,0,.4); }
-  .pin.ok { background:#0a7a2f; }
+  .part { border:1px solid var(--acc); border-radius:10px; padding:10px; margin:8px 0; background:var(--bg); }
+  .part h3 { margin:0 0 6px; font-size:15px; display:flex; justify-content:space-between; align-items:center; }
+  .part h3 button { padding:4px 10px; }
+  .part .dos { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .part input[type=text], .part input[type=tel], .part input[type=number] { margin:4px 0; min-width:0; width:100%; box-sizing:border-box; }
+  .part label.chk { display:flex; gap:8px; align-items:flex-start; font-size:14px; margin:6px 0; }
+  .part label.chk input { margin-top:3px; flex:none; width:auto; }
+  .tutor { border-left:3px solid var(--acc); padding-left:8px; margin:6px 0; }
+  .consent { background:var(--bg); border:1px solid var(--mut); border-radius:8px; padding:8px; font-size:13px; margin:8px 0; }
+  .consent p { margin:4px 0; }
 </style>
 </head>
 <body>
@@ -62,8 +61,8 @@
     <div class="mut" id="infoPartida"></div>
     <div class="modo oculto" id="infoModo"></div>
     <input id="nombreEquipo" maxlength="40" placeholder="Nombre de tu equipo" autocomplete="off">
-    <b>Participantes</b>
-    <div class="cabParts"><span>Nombre</span><span>Apellido</span><span>Edad</span><span></span></div>
+    <b>Participantes</b> <span class="mut" id="rangoPart"></span>
+    <details class="consent" id="boxConsent" open><summary id="consTitulo">Uso de tus datos personales</summary><div id="consTexto"></div></details>
     <div id="listaParts"></div>
     <button id="btnAgregarPart" class="sec">+ Agregar participante</button>
     <button id="btnEquipo" class="primary">Entrar al juego</button>
@@ -218,7 +217,8 @@ function iniciar(cfg) {
         ? 'Juego a distancia: no hace falta estar en el lugar. Van a marcar cada lugar en el mapa.'
         : 'Juego presencial: tienen que estar en cada lugar y permitir el acceso a la ubicación del celular.';
       $('infoModo').classList.remove('oculto');
-      if (!$('listaParts').children.length) agregarParticipante();
+      pintarConsentimiento();
+      if (!$('listaParts').children.length) for (let i = 0; i < (info.minJugadores || 3); i++) agregarParticipante();
       centrar(info.centro);
       vista('vistaEquipo');
     } catch (e) {
@@ -229,38 +229,95 @@ function iniciar(cfg) {
   $('codigoIn').onkeydown = e => { if (e.key === 'Enter') $('btnCodigo').click(); };
 
   // ---------- Registro de participantes ----------
-  const MAX_PART = 10;
-  function refrescarBtnAgregar() { $('btnAgregarPart').disabled = $('listaParts').children.length >= MAX_PART; }
-  function campo(placeholder, maxLength) {
+  // Los datos personales se envian UNA vez al servidor (crear_equipo) y no se muestran
+  // ni se guardan en el navegador. Todo texto va por textContent/DOM (nunca innerHTML).
+  const CONS = cfg.consentimiento || {};
+  const CONS_VERSION = CONS.version || 'sin-texto';
+  const MIN_PART = () => (partida && partida.minJugadores) || 3;
+  const MAX_PART = () => (partida && partida.maxJugadores) || 5;
+
+  function pintarConsentimiento() {
+    $('consTitulo').textContent = CONS.titulo || 'Uso de tus datos personales';
+    const box = $('consTexto'); box.textContent = '';
+    (CONS.parrafos || ['(Falta el texto de consentimiento en config.json)']).forEach(t => {
+      const p = document.createElement('p'); p.textContent = t; box.appendChild(p);
+    });
+    if (CONS.contacto) { const p = document.createElement('p'); p.textContent = 'Contacto: ' + CONS.contacto; box.appendChild(p); }
+    $('rangoPart').textContent = '(entre ' + MIN_PART() + ' y ' + MAX_PART() + ')';
+  }
+  function refrescarBtnAgregar() { $('btnAgregarPart').disabled = $('listaParts').children.length >= MAX_PART(); }
+  function renumerar() {
+    Array.from($('listaParts').children).forEach((f, i) => { f.querySelector('.tit').textContent = 'Participante ' + (i + 1); });
+  }
+  function inp(f, name, ph, max, type) {
     const i = document.createElement('input');
-    i.placeholder = placeholder; i.maxLength = maxLength; i.autocomplete = 'off';
-    i.setAttribute('aria-label', placeholder);
+    i.type = type || 'text'; i.placeholder = ph; i.maxLength = max; i.autocomplete = 'off';
+    i.dataset.k = name; i.setAttribute('aria-label', ph);
     return i;
+  }
+  function chk(name, texto) {
+    const l = document.createElement('label'); l.className = 'chk';
+    const c = document.createElement('input'); c.type = 'checkbox'; c.dataset.k = name;
+    const t = document.createElement('span'); t.textContent = texto;
+    l.append(c, t); return l;
   }
   function agregarParticipante() {
     const lista = $('listaParts');
-    if (lista.children.length >= MAX_PART) return;
-    const f = document.createElement('div'); f.className = 'integ';
-    const nombre = campo('Nombre', 40), apellido = campo('Apellido', 40);
-    const edad = campo('Edad', 3); edad.type = 'number'; edad.min = 1; edad.max = 120; edad.inputMode = 'numeric';
+    if (lista.children.length >= MAX_PART()) return;
+    const f = document.createElement('div'); f.className = 'part';
+    const h = document.createElement('h3');
+    const tit = document.createElement('span'); tit.className = 'tit';
     const quitar = document.createElement('button');
-    quitar.type = 'button'; quitar.textContent = '✕'; quitar.title = 'Quitar participante';
-    quitar.setAttribute('aria-label', 'Quitar participante');
-    quitar.onclick = () => { if (lista.children.length > 1) { f.remove(); refrescarBtnAgregar(); } };
-    f.append(nombre, apellido, edad, quitar);
+    quitar.type = 'button'; quitar.textContent = 'Quitar'; quitar.className = 'sec';
+    quitar.onclick = () => { f.remove(); renumerar(); refrescarBtnAgregar(); };
+    h.append(tit, quitar);
+
+    const dos = document.createElement('div'); dos.className = 'dos';
+    dos.append(inp(f, 'nombre', 'Nombre', 40), inp(f, 'apellido', 'Apellido', 40));
+    const dos2 = document.createElement('div'); dos2.className = 'dos';
+    const edad = inp(f, 'edad', 'Edad', 3, 'number'); edad.min = 1; edad.max = 120; edad.inputMode = 'numeric';
+    dos2.append(edad, inp(f, 'telefono', 'Teléfono (ej. 11 5555-1234)', 20, 'tel'));
+    const ig = inp(f, 'instagram', 'Instagram (usuario, sin @)', 31);
+    const sinIg = chk('sinIg', 'No tengo Instagram');
+    sinIg.firstChild.onchange = () => { ig.disabled = sinIg.firstChild.checked; if (ig.disabled) ig.value = ''; };
+
+    const tutor = document.createElement('div'); tutor.className = 'tutor oculto';
+    const tt = document.createElement('div'); tt.className = 'mut';
+    tt.textContent = 'Es menor de 18 años: hace falta los datos y la autorización de su madre, padre o tutor.';
+    tutor.append(tt, inp(f, 'tutorNombre', 'Nombre y apellido de madre/padre/tutor', 80),
+      inp(f, 'tutorTelefono', 'Teléfono de madre/padre/tutor', 20, 'tel'),
+      chk('autorizacionTutor', 'Su madre/padre/tutor autoriza que participe y que se usen sus datos como indica el texto de arriba.'));
+    edad.oninput = () => { const n = Number(edad.value); tutor.classList.toggle('oculto', !(edad.value && n < 18)); };
+
+    const cons = chk('consentimiento', 'Acepto expresamente el uso de mis datos personales para esta actividad (según el texto de arriba).');
+    f.append(h, dos, dos2, ig, sinIg, tutor, cons);
     lista.appendChild(f);
-    refrescarBtnAgregar();
+    renumerar(); refrescarBtnAgregar();
   }
   function leerParticipantes() {
-    const salida = [];
-    Array.from($('listaParts').children).forEach((f, i) => {
-      const [n, a, ed] = f.querySelectorAll('input');
-      const nombre = n.value.trim(), apellido = a.value.trim(), edad = Number(ed.value);
-      if (nombre.length < 2 || apellido.length < 2) throw new Error('Participante ' + (i + 1) + ': completá nombre y apellido.');
-      if (!ed.value || !Number.isInteger(edad) || edad < 1 || edad > 120) throw new Error('Participante ' + (i + 1) + ': poné una edad válida (de 1 a 120).');
-      salida.push({ nombre, apellido, edad });
+    const lista = Array.from($('listaParts').children);
+    if (lista.length < MIN_PART() || lista.length > MAX_PART())
+      throw new Error('El equipo tiene que tener entre ' + MIN_PART() + ' y ' + MAX_PART() + ' participantes.');
+    return lista.map((f, i) => {
+      const v = k => { const e = f.querySelector('[data-k="' + k + '"]'); return e.type === 'checkbox' ? e.checked : e.value.trim(); };
+      const p = 'Participante ' + (i + 1) + ': ';
+      const edad = Number(v('edad'));
+      if (v('nombre').length < 2 || v('apellido').length < 2) throw new Error(p + 'completá nombre y apellido.');
+      if (!v('edad') || !Number.isInteger(edad) || edad < 5 || edad > 110) throw new Error(p + 'poné una edad válida.');
+      if (!/^[0-9+() -]{6,20}$/.test(v('telefono'))) throw new Error(p + 'el teléfono no es válido (solo números, +, espacios y guiones).');
+      const ig = v('instagram').replace(/^@/, '');
+      if (!v('sinIg') && !ig) throw new Error(p + 'poné tu usuario de Instagram o tildá "No tengo Instagram".');
+      if (ig && !/^[A-Za-z0-9._]{1,30}$/.test(ig)) throw new Error(p + 'el usuario de Instagram no es válido.');
+      if (!v('consentimiento')) throw new Error(p + 'tiene que aceptar el uso de datos para poder participar.');
+      const o = { nombre: v('nombre'), apellido: v('apellido'), edad, telefono: v('telefono'), instagram: ig, consentimiento: true };
+      if (edad < 18) {
+        if (v('tutorNombre').length < 3) throw new Error(p + 'falta el nombre de la madre, padre o tutor.');
+        if (!/^[0-9+() -]{6,20}$/.test(v('tutorTelefono'))) throw new Error(p + 'el teléfono del tutor no es válido.');
+        if (!v('autorizacionTutor')) throw new Error(p + 'falta la autorización de la madre, padre o tutor.');
+        o.tutorNombre = v('tutorNombre'); o.tutorTelefono = v('tutorTelefono'); o.autorizacionTutor = true;
+      }
+      return o;
     });
-    return salida;
   }
   $('btnAgregarPart').onclick = agregarParticipante;
 
@@ -271,9 +328,10 @@ function iniciar(cfg) {
       if (nombreEquipo.length < 2) throw new Error('El nombre del equipo es muy corto.');
       const participantes = leerParticipantes();
       $('btnEquipo').disabled = true;
-      const id = await rpc('crear_equipo', { p_codigo: codigo, p_nombre: nombreEquipo, p_participantes: participantes });
+      const id = await rpc('crear_equipo', { p_codigo: codigo, p_nombre: nombreEquipo, p_participantes: participantes, p_version: CONS_VERSION });
       guardar(LS, JSON.stringify({ id, codigo }));
       equipoId = id;
+      $('listaParts').textContent = '';   // no dejamos datos personales en el formulario
       await recuperar();
     } catch (e) { $('msgEquipo').textContent = e.message; }
     finally { $('btnEquipo').disabled = false; }
@@ -438,3 +496,4 @@ function iniciar(cfg) {
 </script>
 </body>
 </html>
+
