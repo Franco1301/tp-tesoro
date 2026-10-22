@@ -1,4 +1,4 @@
- !doctype html>
+<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -33,16 +33,38 @@
   summary { cursor:pointer; color:var(--acc); }
   .fila { display:flex; gap:6px; } .fila input { flex:1; }
   .modo { background:var(--bg); border:1px dashed var(--acc); border-radius:8px; padding:8px; margin:6px 0; font-size:14px; }
-  .part { border:1px solid var(--acc); border-radius:10px; padding:10px; margin:8px 0; background:var(--bg); }
-  .part h3 { margin:0 0 6px; font-size:15px; display:flex; justify-content:space-between; align-items:center; }
-  .part h3 button { padding:4px 10px; }
-  .part .dos { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
-  .part input[type=text], .part input[type=tel], .part input[type=number] { margin:4px 0; min-width:0; width:100%; box-sizing:border-box; }
-  .part label.chk { display:flex; gap:8px; align-items:flex-start; font-size:14px; margin:6px 0; }
-  .part label.chk input { margin-top:3px; flex:none; width:auto; }
-  .tutor { border-left:3px solid var(--acc); padding-left:8px; margin:6px 0; }
-  .consent { background:var(--bg); border:1px solid var(--mut); border-radius:8px; padding:8px; font-size:13px; margin:8px 0; }
-  .consent p { margin:4px 0; }
+  .integ { display:grid; grid-template-columns:1fr 1fr 64px 38px; gap:6px; align-items:center; }
+  .integ input { margin:0; padding:8px; min-width:0; }
+  .integ button { padding:8px 0; }
+  #listaParts { display:grid; gap:6px; margin:6px 0; }
+  .cabParts { display:grid; grid-template-columns:1fr 1fr 64px 38px; gap:6px; font-size:12px; color:var(--mut); }
+  button.sec { width:100%; margin-top:6px; }
+  #visitados { list-style:none; margin:4px 0 8px; padding:0; }
+  #visitados li { display:flex; gap:8px; align-items:flex-start; padding:4px 0; border-bottom:1px solid var(--line); font-size:14px; }
+  #visitados .chk { flex:none; width:22px; height:22px; border-radius:50%; background:#0a7a2f; color:#fff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  .pin { background:#1565c0; color:#fff; border:2px solid #fff; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; box-shadow:0 1px 4px rgba(0,0,0,.4); }
+  .pin.ok { background:#0a7a2f; }
+  #mapWrap { position:relative; flex:1; min-height:160px; }
+  #mapWrap #map { position:absolute; inset:0; min-height:0; }
+  #resizer { flex:none; height:16px; cursor:row-resize; touch-action:none; background:var(--card); border-top:1px solid var(--line); border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:center; }
+  #resizer::after { content:''; width:48px; height:4px; border-radius:2px; background:var(--mut); opacity:.6; }
+  #btnMapaGrande { position:absolute; top:10px; left:56px; z-index:1000; padding:6px 10px; box-shadow:0 1px 4px rgba(0,0,0,.35); }
+  body.mapaGrande #panel, body.mapaGrande #resizer { display:none; }
+  #miniBarra { position:absolute; left:8px; right:8px; bottom:26px; z-index:1000; background:var(--card); border:2px solid var(--acc); border-radius:10px; padding:8px; display:none; }
+  body.mapaGrande #miniBarra.activa { display:block; }
+  #miniBarra .fila { margin-top:6px; }
+  #miniBarra button { flex:1; font-weight:600; }
+  .barra { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+  .barra button { padding:6px 10px; font-size:13px; flex:none; }
+  .part { background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:8px; margin:6px 0; }
+  .partHead { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+  .partHead button { padding:4px 10px; }
+  .partGrid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .partGrid input { margin:0; min-width:0; }
+  .partGrid .ancho { grid-column:1 / -1; }
+  .chkFila { display:flex; align-items:flex-start; gap:8px; font-size:14px; margin:6px 0 0; }
+  .chkFila input { width:auto; margin:3px 0 0; }
+  #textoDatos { font-size:13px; margin:6px 0; }
 </style>
 </head>
 <body>
@@ -56,23 +78,32 @@
     <div class="msg err" id="msgCodigo"></div>
   </div>
 
-  <!-- Paso 2: nombre del equipo y participantes -->
+  <!-- Paso 2: nombre del equipo y participantes (también sirve para editarlos) -->
   <div id="vistaEquipo" class="oculto">
     <div class="mut" id="infoPartida"></div>
     <div class="modo oculto" id="infoModo"></div>
     <input id="nombreEquipo" maxlength="40" placeholder="Nombre de tu equipo" autocomplete="off">
-    <b>Participantes</b> <span class="mut" id="rangoPart"></span>
-    <details class="consent" id="boxConsent" open><summary id="consTitulo">Uso de tus datos personales</summary><div id="consTexto"></div></details>
+    <b>Participantes <span class="mut">(1, 2 o 3)</span></b>
+    <div class="mut" id="textoDatos"></div>
     <div id="listaParts"></div>
-    <button id="btnAgregarPart" class="sec">+ Agregar participante</button>
-    <button id="btnEquipo" class="primary">Entrar al juego</button>
+    <button id="btnAgregarPart" type="button" class="sec">+ Agregar participante</button>
+    <button id="btnEquipo" type="button" class="primary">Entrar al juego</button>
+    <button id="btnCancelarEdicion" type="button" class="sec oculto">Cancelar</button>
     <div class="msg err" id="msgEquipo"></div>
   </div>
 
   <!-- Paso 3: juego -->
   <div id="vistaJuego" class="oculto">
-    <div id="equipo" class="mut"></div>
-    <div id="integrantes" class="mut"></div>
+    <div class="barra">
+      <div>
+        <div id="equipo" class="mut"></div>
+        <div id="integrantes" class="mut"></div>
+      </div>
+      <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end">
+        <button id="btnEditar" type="button">Editar datos</button>
+        <button id="btnSalir" type="button">Salir de la partida</button>
+      </div>
+    </div>
     <div>Tiempo: <span id="reloj">00:00:00</span> &middot; <span id="avance"></span></div>
     <div class="pista" id="cajaPista"><small id="pistaTit"></small><span id="pista"></span></div>
     <div class="modo oculto" id="ayudaRemoto">Juego a distancia: buscá el lugar en el mapa (podés cambiar a vista satélite), tocalo para marcarlo y confirmá.</div>
@@ -92,12 +123,20 @@
     </div>
     <b>Ranking</b>
     <ol id="ranking"></ol>
-    <button id="btnSalir" class="mut">Salir de este equipo</button>
   </div>
 
   <label class="mut oculto" id="lblEnsayo"><input type="checkbox" id="sim" style="width:auto"> Modo ensayo: tocá el mapa para simular tu ubicación</label>
 </div>
-<div id="map"></div>
+<div id="resizer" title="Arrastrá para cambiar el tamaño del mapa" role="separator" aria-orientation="horizontal"></div>
+<div id="mapWrap">
+  <div id="map"></div>
+  <button id="btnMapaGrande" type="button">⛶ Agrandar mapa</button>
+  <div id="miniBarra">
+    <div id="miniPista"></div>
+    <div class="msg" id="miniMsg"></div>
+    <div class="fila"><button id="miniLlegue" type="button" class="primary">Llegué al punto</button></div>
+  </div>
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -143,6 +182,32 @@ function iniciar(cfg) {
   let yo = null, precisionCirculo = null, pos = null, centrado = false;
   const sim = $('sim');
 
+  // ---------- Tamaño del mapa: arrastrar el borde, o agrandar a pantalla completa ----------
+  const panelEl = $('panel');
+  if (window.ResizeObserver) new ResizeObserver(() => map.invalidateSize()).observe($('mapWrap'));
+  $('resizer').addEventListener('pointerdown', e => {
+    e.preventDefault();
+    const r = $('resizer');
+    try { r.setPointerCapture(e.pointerId); } catch (err) {}
+    const mover = ev => {
+      const h = Math.min(window.innerHeight - 150, Math.max(90, ev.clientY - panelEl.getBoundingClientRect().top));
+      panelEl.style.maxHeight = 'none'; panelEl.style.flex = 'none'; panelEl.style.height = h + 'px';
+    };
+    const soltar = () => ['pointermove', 'pointerup', 'pointercancel'].forEach((t, i) => r.removeEventListener(t, i ? soltar : mover));
+    r.addEventListener('pointermove', mover);
+    r.addEventListener('pointerup', soltar);
+    r.addEventListener('pointercancel', soltar);
+  });
+  $('btnMapaGrande').onclick = () => {
+    const g = document.body.classList.toggle('mapaGrande');
+    $('btnMapaGrande').textContent = g ? '↙ Volver' : '⛶ Agrandar mapa';
+    setTimeout(() => map.invalidateSize(), 50);
+  };
+  // En pantalla completa del mapa se ve la pista y se puede confirmar desde ahí
+  $('miniLlegue').onclick = () => $('btnLlegue').click();
+  new MutationObserver(() => { $('miniMsg').textContent = $('msg').textContent; $('miniMsg').className = $('msg').className; })
+    .observe($('msg'), { childList: true, characterData: true, subtree: true, attributes: true });
+
   const PLANT = cfg.plantillas || [];
   const nombreTipo = tipo => { const t = PLANT.find(x => x.tipo === tipo); return t ? t.nombre : tipo; };
 
@@ -150,6 +215,8 @@ function iniciar(cfg) {
   let equipoId = null, codigo = null, partida = null;
   let inicioMs = 0, offsetMs = 0, finMs = 0, terminado = false;
   let modo = 'presencial', controlCapas = null;
+  let modoForm = 'crear', ultimoProgreso = null;
+  const CONSENT_VERSION = '2026-10-21';
 
   function centrar(c) { if (!centrado && c) { map.setView([c.lat, c.lng], modo === 'remoto' ? 16 : 17); centrado = true; } }
 
@@ -168,6 +235,7 @@ function iniciar(cfg) {
     $('estado').classList.toggle('oculto', remoto);
     $('lblEnsayo').classList.toggle('oculto', remoto || params.get('ensayo') !== '1');
     $('btnLlegue').textContent = remoto ? 'Confirmar este lugar' : 'Llegué al punto';
+    $('miniLlegue').textContent = $('btnLlegue').textContent;
     if (remoto) {
       dejarDeMirar();
       if (!controlCapas) controlCapas = L.control.layers({ 'Mapa': calles, 'Satélite': satelite }, null, { position: 'topright' }).addTo(map);
@@ -217,8 +285,9 @@ function iniciar(cfg) {
         ? 'Juego a distancia: no hace falta estar en el lugar. Van a marcar cada lugar en el mapa.'
         : 'Juego presencial: tienen que estar en cada lugar y permitir el acceso a la ubicación del celular.';
       $('infoModo').classList.remove('oculto');
-      pintarConsentimiento();
-      if (!$('listaParts').children.length) for (let i = 0; i < (info.minJugadores || 3); i++) agregarParticipante();
+      setModoForm('crear');
+      aplicarCampos(info.campos);
+      agregarParticipante();
       centrar(info.centro);
       vista('vistaEquipo');
     } catch (e) {
@@ -228,121 +297,147 @@ function iniciar(cfg) {
   $('btnCodigo').onclick = () => abrirPartida($('codigoIn').value);
   $('codigoIn').onkeydown = e => { if (e.key === 'Enter') $('btnCodigo').click(); };
 
-  // ---------- Registro de participantes ----------
-  // Los datos personales se envian UNA vez al servidor (crear_equipo) y no se muestran
-  // ni se guardan en el navegador. Todo texto va por textContent/DOM (nunca innerHTML).
-  const CONS = cfg.consentimiento || {};
-  const CONS_VERSION = CONS.version || 'sin-texto';
-  const MIN_PART = () => (partida && partida.minJugadores) || 3;
-  const MAX_PART = () => (partida && partida.maxJugadores) || 5;
+  // ---------- Registro / edición de participantes (los datos pedidos los elige el organizador) ----------
+  const MAX_PART = 3;
+  const CAMPOS_BASE = { nombre: 'req', apellido: 'req', edad: 'req', telefono: 'off', instagram: 'off' };
+  const ETIQ = { nombre: 'Nombre', apellido: 'Apellido', edad: 'Edad', telefono: 'Teléfono', instagram: 'Instagram (usuario, sin @)' };
+  const ETIQ_TXT = { nombre: 'nombre', apellido: 'apellido', edad: 'edad', telefono: 'teléfono', instagram: 'Instagram' };
+  let campos = Object.assign({}, CAMPOS_BASE);
 
-  function pintarConsentimiento() {
-    $('consTitulo').textContent = CONS.titulo || 'Uso de tus datos personales';
-    const box = $('consTexto'); box.textContent = '';
-    (CONS.parrafos || ['(Falta el texto de consentimiento en config.json)']).forEach(t => {
-      const p = document.createElement('p'); p.textContent = t; box.appendChild(p);
-    });
-    if (CONS.contacto) { const p = document.createElement('p'); p.textContent = 'Contacto: ' + CONS.contacto; box.appendChild(p); }
-    $('rangoPart').textContent = '(entre ' + MIN_PART() + ' y ' + MAX_PART() + ')';
+  function aplicarCampos(c) {
+    campos = Object.assign({}, CAMPOS_BASE, c || {});
+    campos.nombre = 'req';
+    const pedidos = Object.keys(ETIQ_TXT).filter(k => campos[k] !== 'off').map(k => ETIQ_TXT[k] + (campos[k] === 'opt' ? ' (opcional)' : ''));
+    $('textoDatos').textContent = 'Datos que pide el organizador: ' + pedidos.join(', ') +
+      '. Se usan solo para esta actividad, los ve únicamente quien organiza el juego y no se publican (el ranking muestra solo el nombre del equipo).';
+    $('listaParts').textContent = '';
+    refrescarBtnAgregar();
   }
-  function refrescarBtnAgregar() { $('btnAgregarPart').disabled = $('listaParts').children.length >= MAX_PART(); }
+
+  function setModoForm(m) {
+    modoForm = m;
+    $('btnEquipo').textContent = m === 'editar' ? 'Guardar cambios' : 'Entrar al juego';
+    $('btnCancelarEdicion').classList.toggle('oculto', m !== 'editar');
+    $('infoModo').classList.toggle('oculto', m === 'editar');
+    $('msgEquipo').textContent = '';
+  }
+
+  function refrescarBtnAgregar() { $('btnAgregarPart').disabled = $('listaParts').children.length >= MAX_PART; }
   function renumerar() {
-    Array.from($('listaParts').children).forEach((f, i) => { f.querySelector('.tit').textContent = 'Participante ' + (i + 1); });
+    Array.from($('listaParts').children).forEach((c, i) => { c.querySelector('.partTit').textContent = 'Participante ' + (i + 1); });
   }
-  function inp(f, name, ph, max, type) {
-    const i = document.createElement('input');
-    i.type = type || 'text'; i.placeholder = ph; i.maxLength = max; i.autocomplete = 'off';
-    i.dataset.k = name; i.setAttribute('aria-label', ph);
-    return i;
-  }
-  function chk(name, texto) {
-    const l = document.createElement('label'); l.className = 'chk';
-    const c = document.createElement('input'); c.type = 'checkbox'; c.dataset.k = name;
-    const t = document.createElement('span'); t.textContent = texto;
-    l.append(c, t); return l;
-  }
-  function agregarParticipante() {
+
+  function agregarParticipante(datos) {
     const lista = $('listaParts');
-    if (lista.children.length >= MAX_PART()) return;
-    const f = document.createElement('div'); f.className = 'part';
-    const h = document.createElement('h3');
-    const tit = document.createElement('span'); tit.className = 'tit';
-    const quitar = document.createElement('button');
-    quitar.type = 'button'; quitar.textContent = 'Quitar'; quitar.className = 'sec';
-    quitar.onclick = () => { f.remove(); renumerar(); refrescarBtnAgregar(); };
-    h.append(tit, quitar);
+    if (lista.children.length >= MAX_PART) return;
+    datos = datos || {};
+    const card = document.createElement('div'); card.className = 'part';
+    const head = document.createElement('div'); head.className = 'partHead';
+    const tit = document.createElement('b'); tit.className = 'partTit';
+    const quitar = document.createElement('button'); quitar.type = 'button'; quitar.textContent = 'Quitar';
+    quitar.onclick = () => { if (lista.children.length > 1) { card.remove(); renumerar(); refrescarBtnAgregar(); } };
+    head.append(tit, quitar);
 
-    const dos = document.createElement('div'); dos.className = 'dos';
-    dos.append(inp(f, 'nombre', 'Nombre', 40), inp(f, 'apellido', 'Apellido', 40));
-    const dos2 = document.createElement('div'); dos2.className = 'dos';
-    const edad = inp(f, 'edad', 'Edad', 3, 'number'); edad.min = 1; edad.max = 120; edad.inputMode = 'numeric';
-    dos2.append(edad, inp(f, 'telefono', 'Teléfono (ej. 11 5555-1234)', 20, 'tel'));
-    const ig = inp(f, 'instagram', 'Instagram (usuario, sin @)', 31);
-    const sinIg = chk('sinIg', 'No tengo Instagram');
-    sinIg.firstChild.onchange = () => { ig.disabled = sinIg.firstChild.checked; if (ig.disabled) ig.value = ''; };
+    const grid = document.createElement('div'); grid.className = 'partGrid';
+    const refs = {};
+    ['nombre', 'apellido', 'edad', 'telefono', 'instagram'].forEach(k => {
+      if (campos[k] === 'off') return;
+      const i = document.createElement('input');
+      i.placeholder = ETIQ[k] + (campos[k] === 'opt' ? ' (opcional)' : '');
+      i.setAttribute('aria-label', i.placeholder); i.autocomplete = 'off';
+      if (k === 'edad') { i.type = 'number'; i.min = 1; i.max = 120; i.inputMode = 'numeric'; }
+      else if (k === 'telefono') { i.type = 'tel'; i.maxLength = 25; }
+      else i.maxLength = (k === 'instagram') ? 31 : 40;
+      if (datos[k] != null) i.value = datos[k];
+      if (k === 'telefono' || k === 'instagram') i.classList.add('ancho');
+      refs[k] = i; grid.appendChild(i);
+    });
 
-    const tutor = document.createElement('div'); tutor.className = 'tutor oculto';
-    const tt = document.createElement('div'); tt.className = 'mut';
-    tt.textContent = 'Es menor de 18 años: hace falta los datos y la autorización de su madre, padre o tutor.';
-    tutor.append(tt, inp(f, 'tutorNombre', 'Nombre y apellido de madre/padre/tutor', 80),
-      inp(f, 'tutorTelefono', 'Teléfono de madre/padre/tutor', 20, 'tel'),
-      chk('autorizacionTutor', 'Su madre/padre/tutor autoriza que participe y que se usen sus datos como indica el texto de arriba.'));
-    edad.oninput = () => { const n = Number(edad.value); tutor.classList.toggle('oculto', !(edad.value && n < 18)); };
+    const extra = document.createElement('div');
+    if (refs.instagram) {
+      const l = document.createElement('label'); l.className = 'chkFila';
+      const sin = document.createElement('input'); sin.type = 'checkbox';
+      sin.checked = !!datos.sinInstagram;
+      const sync = () => { refs.instagram.disabled = sin.checked; if (sin.checked) refs.instagram.value = ''; };
+      sin.onchange = sync; sync();
+      l.append(sin, 'No tengo Instagram');
+      refs.sin = sin; extra.appendChild(l);
+    }
+    const l2 = document.createElement('label'); l2.className = 'chkFila';
+    const ac = document.createElement('input'); ac.type = 'checkbox'; ac.checked = !!datos.acepto;
+    l2.append(ac, 'Acepto expresamente el uso de mis datos personales para esta actividad (según el texto de arriba).');
+    refs.acepto = ac; extra.appendChild(l2);
 
-    const cons = chk('consentimiento', 'Acepto expresamente el uso de mis datos personales para esta actividad (según el texto de arriba).');
-    f.append(h, dos, dos2, ig, sinIg, tutor, cons);
-    lista.appendChild(f);
+    card.append(head, grid, extra);
+    card._refs = refs;
+    lista.appendChild(card);
     renumerar(); refrescarBtnAgregar();
   }
+
   function leerParticipantes() {
-    const lista = Array.from($('listaParts').children);
-    if (lista.length < MIN_PART() || lista.length > MAX_PART())
-      throw new Error('El equipo tiene que tener entre ' + MIN_PART() + ' y ' + MAX_PART() + ' participantes.');
-    return lista.map((f, i) => {
-      const v = k => { const e = f.querySelector('[data-k="' + k + '"]'); return e.type === 'checkbox' ? e.checked : e.value.trim(); };
-      const p = 'Participante ' + (i + 1) + ': ';
-      const edad = Number(v('edad'));
-      if (v('nombre').length < 2 || v('apellido').length < 2) throw new Error(p + 'completá nombre y apellido.');
-      if (!v('edad') || !Number.isInteger(edad) || edad < 5 || edad > 110) throw new Error(p + 'poné una edad válida.');
-      if (!/^[0-9+() -]{6,20}$/.test(v('telefono'))) throw new Error(p + 'el teléfono no es válido (solo números, +, espacios y guiones).');
-      const ig = v('instagram').replace(/^@/, '');
-      if (!v('sinIg') && !ig) throw new Error(p + 'poné tu usuario de Instagram o tildá "No tengo Instagram".');
-      if (ig && !/^[A-Za-z0-9._]{1,30}$/.test(ig)) throw new Error(p + 'el usuario de Instagram no es válido.');
-      if (!v('consentimiento')) throw new Error(p + 'tiene que aceptar el uso de datos para poder participar.');
-      const o = { nombre: v('nombre'), apellido: v('apellido'), edad, telefono: v('telefono'), instagram: ig, consentimiento: true };
-      if (edad < 18) {
-        if (v('tutorNombre').length < 3) throw new Error(p + 'falta el nombre de la madre, padre o tutor.');
-        if (!/^[0-9+() -]{6,20}$/.test(v('tutorTelefono'))) throw new Error(p + 'el teléfono del tutor no es válido.');
-        if (!v('autorizacionTutor')) throw new Error(p + 'falta la autorización de la madre, padre o tutor.');
-        o.tutorNombre = v('tutorNombre'); o.tutorTelefono = v('tutorTelefono'); o.autorizacionTutor = true;
+    return Array.from($('listaParts').children).map((card, i) => {
+      const r = card._refs, n = 'Participante ' + (i + 1) + ': ';
+      const val = k => (r[k] ? r[k].value.trim() : '');
+      const p = { nombre: val('nombre'), acepto: r.acepto.checked };
+      if (p.nombre.length < 2) throw new Error(n + 'completá el nombre.');
+      if (r.apellido) { p.apellido = val('apellido'); if (campos.apellido === 'req' && !p.apellido) throw new Error(n + 'completá el apellido.'); }
+      if (r.edad) {
+        p.edad = val('edad');
+        if (campos.edad === 'req' && !p.edad) throw new Error(n + 'completá la edad.');
+        if (p.edad && !(/^\d{1,3}$/.test(p.edad) && +p.edad >= 1 && +p.edad <= 120)) throw new Error(n + 'poné una edad válida (de 1 a 120).');
       }
-      return o;
+      if (r.telefono) { p.telefono = val('telefono'); if (campos.telefono === 'req' && !p.telefono) throw new Error(n + 'completá el teléfono.'); }
+      if (r.instagram) {
+        p.sinInstagram = r.sin.checked; p.instagram = val('instagram');
+        if (campos.instagram === 'req' && !p.sinInstagram && !p.instagram) throw new Error(n + 'completá el Instagram o marcá «No tengo Instagram».');
+      }
+      if (!p.acepto) throw new Error(n + 'tiene que aceptar el uso de sus datos personales.');
+      return p;
     });
   }
-  $('btnAgregarPart').onclick = agregarParticipante;
+  $('btnAgregarPart').onclick = () => agregarParticipante();
 
   $('btnEquipo').onclick = async () => {
     $('msgEquipo').textContent = '';
     const nombreEquipo = $('nombreEquipo').value.trim();
+    let enviando = false;
     try {
       if (nombreEquipo.length < 2) throw new Error('El nombre del equipo es muy corto.');
       const participantes = leerParticipantes();
-      $('btnEquipo').disabled = true;
-      const id = await rpc('crear_equipo', { p_codigo: codigo, p_nombre: nombreEquipo, p_participantes: participantes, p_version: CONS_VERSION });
-      guardar(LS, JSON.stringify({ id, codigo }));
-      equipoId = id;
-      $('listaParts').textContent = '';   // no dejamos datos personales en el formulario
+      $('btnEquipo').disabled = true; enviando = true;
+      if (modoForm === 'editar') {
+        await rpc('editar_equipo', { p_equipo: equipoId, p_nombre: nombreEquipo, p_participantes: participantes, p_version: CONSENT_VERSION });
+        setModoForm('crear');
+      } else {
+        const id = await rpc('crear_equipo', { p_codigo: codigo, p_nombre: nombreEquipo, p_participantes: participantes, p_version: CONSENT_VERSION });
+        guardar(LS, JSON.stringify({ id, codigo }));
+        equipoId = id;
+      }
       await recuperar();
     } catch (e) { $('msgEquipo').textContent = e.message; }
-    finally { $('btnEquipo').disabled = false; }
+    finally { if (enviando) $('btnEquipo').disabled = false; }
   };
   $('nombreEquipo').onkeydown = e => { if (e.key === 'Enter') $('btnEquipo').click(); };
+
+  // Editar: abre el mismo formulario con los datos actuales. Nada lo refresca solo mientras se escribe.
+  $('btnEditar').onclick = () => {
+    if (!ultimoProgreso) return;
+    setModoForm('editar');
+    aplicarCampos(ultimoProgreso.campos);
+    $('nombreEquipo').value = ultimoProgreso.equipo;
+    const ps = ultimoProgreso.participantes || [];
+    (ps.length ? ps : [{}]).forEach(p => agregarParticipante(Object.assign({}, p, { acepto: ps.length > 0 })));
+    $('infoPartida').textContent = 'Editando tu equipo';
+    vista('vistaEquipo');
+  };
+  $('btnCancelarEdicion').onclick = () => { setModoForm('crear'); vista('vistaJuego'); };
 
   // ---------- Paso 3: juego ----------
   async function recuperar() {
     const d = await rpc('mi_progreso', { p_equipo: equipoId });
     if (!d) { borrar(LS); equipoId = null; throw new Error('No encontramos tu equipo. Creá uno nuevo.'); }
     codigo = d.codigo;
+    ultimoProgreso = d;
     aplicarModo(d.modo);
     $('titulo').textContent = d.juego;
     $('equipo').textContent = 'Equipo: ' + d.equipo + ' · partida ' + d.codigo;
@@ -361,6 +456,9 @@ function iniciar(cfg) {
       $('pista').textContent = d.pista;
     }
     $('btnLlegue').disabled = terminado;
+    $('miniLlegue').disabled = terminado;
+    $('miniPista').textContent = terminado ? '¡Felicitaciones! Completaron todos los puntos.' : 'Pista ' + (d.completados + 1) + ': ' + d.pista;
+    $('miniBarra').classList.add('activa');
     $('detRespaldo').classList.toggle('oculto', terminado);
     centrar(d.centro);
     vista('vistaJuego');
@@ -430,11 +528,22 @@ function iniciar(cfg) {
   };
 
   $('btnSalir').onclick = () => {
-    if (!confirm('¿Salir de este equipo? Podés crear otro. El progreso queda guardado en el servidor.')) return;
-    borrar(LS); equipoId = null; inicioMs = 0;
+    if (!confirm('¿Salir de la partida?\n\nVas a volver a la pantalla de ingreso. El progreso del equipo queda guardado en el servidor, pero para volver a jugar tendrían que registrar un equipo nuevo.')) return;
+    const cod = codigo;
+    borrar(LS);
+    equipoId = null; ultimoProgreso = null; inicioMs = 0; finMs = 0; terminado = false; partida = null;
     capaVisitados.clearLayers(); limpiarMarca();
+    $('miniBarra').classList.remove('activa');
+    document.body.classList.remove('mapaGrande'); $('btnMapaGrande').textContent = '⛶ Agrandar mapa';
+    $('reloj').textContent = '00:00:00';
+    $('ranking').textContent = ''; $('visitados').textContent = ''; $('bloqueVisitados').classList.add('oculto');
+    $('msg').textContent = ''; $('codigoResp').value = '';
     $('listaParts').textContent = ''; $('nombreEquipo').value = '';
-    abrirPartida(codigo);
+    setModoForm('crear');
+    $('titulo').textContent = 'Búsqueda del tesoro';
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
+    $('codigoIn').value = cod || ''; $('msgCodigo').textContent = '';
+    vista('vistaCodigo');
   };
 
   // ---------- Reloj (hora del servidor) y ranking ----------
@@ -496,4 +605,3 @@ function iniciar(cfg) {
 </script>
 </body>
 </html>
-
