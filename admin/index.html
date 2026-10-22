@@ -12,9 +12,16 @@
   }
   * { box-sizing: border-box; }
   body { margin:0; font:15px/1.4 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
-  #app { display:grid; grid-template-columns:400px 1fr; height:100vh; }
+  #app { display:grid; grid-template-columns:var(--ancho, 400px) 8px 1fr; height:100vh; }
+  #divisor { cursor:col-resize; touch-action:none; background:var(--card); border-right:1px solid var(--line); }
+  #divisor:hover { background:var(--line); }
   #side { overflow:auto; padding:14px; border-right:1px solid var(--line); }
-  #map { height:100%; min-height:300px; }
+  #mapaCaja { position:relative; min-height:300px; }
+  #mapaCaja #map { position:absolute; inset:0; }
+  #btnMapaGrande { position:absolute; top:10px; left:56px; z-index:1000; box-shadow:0 1px 4px rgba(0,0,0,.35); }
+  body.mapaGrande #mapaCaja { position:fixed !important; inset:0; height:auto !important; z-index:3000; }
+  .cfgFila { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:4px 0; }
+  .cfgFila select { width:auto; }
   h1 { font-size:19px; margin:0 0 4px; }
   h2 { font-size:15px; margin:16px 0 6px; }
   p.mut, .mut { color:var(--mut); font-size:13px; margin:2px 0 8px; }
@@ -53,11 +60,12 @@
   .resp { font-family:ui-monospace, monospace; font-weight:700; }
   @media (max-width: 820px) {
     #app { grid-template-columns:1fr; height:auto; }
-    #map { order:-1; height:55vh; }
+    #divisor { display:none; }
+    #mapaCaja { order:-1; height:55vh; }
     #side { border-right:0; }
   }
   @media print {
-    #map, .tabs, button, #vistaCrear, #vistaEntrar { display:none !important; }
+    #mapaCaja, #divisor, .tabs, button, #vistaCrear, #vistaEntrar { display:none !important; }
     #app { display:block; height:auto; } #side { overflow:visible; border:0; }
   }
 </style>
@@ -86,6 +94,10 @@
         <option value="remoto">A distancia (marcar en el mapa)</option>
       </select>
       <p class="mut" id="notaModo"></p>
+
+      <h2>Datos que se piden a los participantes</h2>
+      <p class="mut">Elegí qué datos completa cada participante al entrar (equipos de 1, 2 o 3 personas). El nombre siempre se pide, y todos deben aceptar el uso de sus datos personales.</p>
+      <div id="camposCfg"></div>
 
       <h2>1. Elegí el lugar</h2>
       <div class="fila">
@@ -151,7 +163,11 @@
       </div>
     </div>
   </div>
-  <div id="map"></div>
+  <div id="divisor" title="Arrastrá para cambiar el ancho del panel" role="separator" aria-orientation="vertical"></div>
+  <div id="mapaCaja">
+    <div id="map"></div>
+    <button id="btnMapaGrande" type="button">⛶ Agrandar mapa</button>
+  </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -205,6 +221,41 @@ function iniciar(cfg) {
     const o = document.createElement('option');
     o.value = t.tipo; o.textContent = t.nombre; $('tipoNuevo').appendChild(o);
   });
+
+  // ---------- Tamaño del mapa: ancho del panel arrastrable y pantalla completa ----------
+  if (window.ResizeObserver) new ResizeObserver(() => map.invalidateSize()).observe($('mapaCaja'));
+  $('divisor').addEventListener('pointerdown', e => {
+    e.preventDefault();
+    const d = $('divisor');
+    try { d.setPointerCapture(e.pointerId); } catch (err) {}
+    const mover = ev => $('app').style.setProperty('--ancho', Math.min(window.innerWidth - 240, Math.max(260, ev.clientX)) + 'px');
+    const soltar = () => ['pointermove', 'pointerup', 'pointercancel'].forEach((t, i) => d.removeEventListener(t, i ? soltar : mover));
+    d.addEventListener('pointermove', mover); d.addEventListener('pointerup', soltar); d.addEventListener('pointercancel', soltar);
+  });
+  $('btnMapaGrande').onclick = () => {
+    const g = document.body.classList.toggle('mapaGrande');
+    $('btnMapaGrande').textContent = g ? '↙ Volver' : '⛶ Agrandar mapa';
+    setTimeout(() => map.invalidateSize(), 50);
+  };
+
+  // ---------- Datos a pedir a los participantes ----------
+  const CAMPOS = [
+    ['nombre', 'Nombre', 'req'], ['apellido', 'Apellido', 'req'], ['edad', 'Edad', 'req'],
+    ['telefono', 'Teléfono / número', 'off'], ['instagram', 'Instagram', 'off']
+  ];
+  const selCampos = {};
+  CAMPOS.forEach(([k, etiqueta, def]) => {
+    const fila = document.createElement('div'); fila.className = 'cfgFila';
+    const l = document.createElement('span'); l.textContent = etiqueta;
+    const sel = document.createElement('select'); sel.setAttribute('aria-label', etiqueta);
+    [['off', 'No pedir'], ['opt', 'Opcional'], ['req', 'Obligatorio']].forEach(([v, t]) => {
+      const o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o);
+    });
+    sel.value = def;
+    if (k === 'nombre') { sel.disabled = true; }       // el nombre siempre es obligatorio
+    selCampos[k] = sel; fila.append(l, sel); $('camposCfg').appendChild(fila);
+  });
+  const camposElegidos = () => Object.fromEntries(CAMPOS.map(([k]) => [k, selCampos[k].value]));
 
   // ---------- Modo de juego (al crear) ----------
   function notaModo() {
@@ -261,7 +312,7 @@ function iniciar(cfg) {
     p.circle = L.circle([lat, lng], { radius: radio, color: '#1565c0', fillOpacity: 0.15 }).addTo(capa);
     p.marker.on('drag', e => p.circle.setLatLng(e.target.getLatLng()));
     p.marker.on('dragend', e => { const ll = e.target.getLatLng(); p.lat = ll.lat; p.lng = ll.lng; });
-    p.marker.on('click', () => { sel = puntos.indexOf(p); pintarMarcadores(); renderLista(); });
+    p.marker.on('click', () => { sel = puntos.indexOf(p); pintarMarcadores(); marcarSeleccion(); });
     puntos.push(p);
     sel = puntos.length - 1;
     pintarMarcadores(); renderLista(); validar();
@@ -281,6 +332,10 @@ function iniciar(cfg) {
     [puntos[i], puntos[j]] = [puntos[j], puntos[i]];
     sel = j;
     pintarMarcadores(); renderLista();
+  }
+
+  function marcarSeleccion() {
+    Array.from($('lista').children).forEach((el, j) => el.classList.toggle('sel', j === sel));
   }
 
   function renderLista() {
@@ -324,7 +379,13 @@ function iniciar(cfg) {
       };
       rr.append('Radio:', rin, 'm');
 
-      li.onclick = () => { sel = i; pintarMarcadores(); renderLista(); map.panTo([p.lat, p.lng]); };
+      // Importante: al hacer clic DENTRO de un campo (pista, radio, tipo) NO se reconstruye la lista,
+      // porque eso destruía el campo y se perdía el foco (no dejaba escribir).
+      li.onclick = ev => {
+        const enCampo = ev.target.closest && ev.target.closest('input, textarea, select, button');
+        if (sel !== i) { sel = i; pintarMarcadores(); marcarSeleccion(); }
+        if (!enCampo) map.panTo([p.lat, p.lng]);
+      };
       li.append(head, ta, rr);
       ol.appendChild(li);
     });
@@ -353,7 +414,7 @@ function iniciar(cfg) {
     try {
       const r = await rpc('crear_partida', {
         p_nombre: $('nombre').value, p_password: $('password').value, p_lat: lat, p_lng: lng,
-        p_modo: $('modoJuego').value,
+        p_modo: $('modoJuego').value, p_campos: camposElegidos(),
         p_puntos: puntos.map(p => ({ tipo: p.tipo, pista: p.pista,
           lat: Number(p.lat.toFixed(6)), lng: Number(p.lng.toFixed(6)), radioM: p.radioM })) });
       guardar(SESION, JSON.stringify({ codigo: r.codigo, password: $('password').value }));
@@ -470,7 +531,11 @@ function iniciar(cfg) {
             const ul = document.createElement('ul');
             e.participantes.forEach(p => {
               const li = document.createElement('li');
-              li.textContent = p.apellido + ', ' + p.nombre + ' — ' + p.edad + (p.edad === 1 ? ' año' : ' años');
+              const extra = [];
+              if (p.edad != null) extra.push(p.edad + (p.edad === 1 ? ' año' : ' años'));
+              if (p.telefono) extra.push('Tel. ' + p.telefono);
+              if (p.instagram) extra.push('@' + p.instagram); else if (p.sinInstagram) extra.push('sin Instagram');
+              li.textContent = [p.apellido, p.nombre].filter(Boolean).join(', ') + (extra.length ? ' — ' + extra.join(' · ') : '');
               ul.appendChild(li);
             });
             det.appendChild(ul);
