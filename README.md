@@ -11,10 +11,10 @@ Entrega final: viernes 23/10/2026.
 
 ## 1. Grupo
 
-| Franco Parrella | Supervisor |
-| Candela Alvarez | Desarollo|
-| Bautista Brambilla | Desarrollo |
-| Yaco Yajia | Tester |
+- | Franco Parrella | Supervisor |
+- | Candela Alvarez | Desarollo|
+- | Bautista Brambilla | Desarrollo |
+- | Yaco Yajia | Tester |
 
 - **Universidad:** Universidad del Salvador (USAL)
 - **Facultad:** de Ingeniería
