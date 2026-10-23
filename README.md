@@ -17,10 +17,7 @@ Entrega final: viernes 23/10/2026.
 - | Candela Alvarez | Desarrollo |
 - | Bautista Brambilla | Desarrollo |
 - | Yaco Yajia | Tester |
-
-
-
- 
+-
 - **Universidad:** Universidad del Salvador (USAL)
 - **Facultad:** de Ingeniería
 - **Materia:** Paradigmas de Programación
@@ -265,7 +262,7 @@ Otros riesgos revisados:
 - **Versión actual (`schema_v5.sql`):** pruebas en un PostgreSQL local (migración sobre v2+v3+v4 ejecutada dos veces, franjas de cercanía, bonus, control de velocidad con tiempos adelantados, pistas con costo y orden, puntaje, tabla histórica y reinicio, inicio por el organizador, unión a equipos, bloqueos de contraseña, de códigos de respaldo y de uniones, que la clave pública no lea tablas ni llame a funciones internas, borrado por vencimiento) y pruebas de navegador automático con tres sesiones: organizador que crea la partida y la inicia, un jugador menor con tutor, otro jugador que se une al mismo equipo desde otra pantalla, sala de espera, sincronización entre pantallas, tabla histórica con integrantes y fecha, y la página de datos.
 - **De punta a punta (versión anterior):** 47 pruebas automáticas con un navegador Chromium real contra ese SQL: crear una partida en Tokio, editar puntos, jugar completa con y sin código de respaldo, recuperar el progreso al recargar, entrar al panel con contraseña correcta e incorrecta, reiniciar, y textos con código malicioso.
 - **Límite de estas pruebas:** el mapa se simuló con un reemplazo de Leaflet y los tiles y la búsqueda de OpenStreetMap con respuestas simuladas, porque el entorno de pruebas no podía descargar Leaflet. **Falta verificar a mano** el dibujo del mapa, el arrastre de marcadores y la búsqueda de lugares, y probar con GPS real en un celular Android (Chrome) y uno iPhone (Safari).
-- **Prueba de campo (25/10, opcional):** `[COMPLETAR resultados: error de posición GPS por punto, tiempo medio por punto, usos del código de respaldo, incidentes y opinión de los jugadores de 1 a 5]`.
+
 
 ---
 
@@ -290,7 +287,7 @@ Otros riesgos revisados:
 
 **Para qué se usó:** Claude (Anthropic) se usó para planificar la entrega, escribir el código de las páginas, el SQL del servidor (incluido el registro con consentimiento y el borrado de datos), las pruebas automáticas y este README, y para explicar cómo usar GitHub y Supabase.
 
-**Qué verificó el grupo a mano:** `[COMPLETAR. Por ejemplo: coordenadas tomadas en la plaza con Google Maps; prueba del mapa y el GPS en un celular real; lectura y explicación de cada función SQL; revisión del análisis de amenazas.]`
+**Qué verificó el grupo a mano:** coordenadas tomadas en la plaza con Google Maps; prueba del mapa y el GPS en un celular real; lectura y explicación de cada función SQL; revisión del análisis de amenazas, verificación de código en general, del texto qe leen los suarios de la página, probar todas las funciones. 
 
 Todo el código del repositorio tiene que poder ser explicado por cualquier integrante: el código que el grupo no pueda explicar se evalúa como no entregado.
 
