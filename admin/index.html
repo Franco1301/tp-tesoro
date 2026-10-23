@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Búsqueda del tesoro</title>
+<title>Organizador - Búsqueda del tesoro</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
   :root { --bg:#fff; --fg:#1d1d1f; --mut:#667; --line:#d9dce1; --acc:#1565c0; --ok:#0a7a2f; --bad:#b00020; --card:#f4f6f8; }
@@ -11,173 +11,204 @@
     :root { --bg:#16181c; --fg:#ececec; --mut:#9aa3ad; --line:#333a42; --acc:#6aa9ff; --ok:#5ad48a; --bad:#ff7b8a; --card:#1f242a; }
   }
   * { box-sizing: border-box; }
-  html, body { margin:0; height:100%; }
-  body { font:16px/1.4 system-ui, sans-serif; background:var(--bg); color:var(--fg); display:flex; flex-direction:column; }
-  #panel { padding:12px; background:var(--card); border-bottom:1px solid var(--line); max-height:62%; overflow:auto; }
-  #map { flex:1; min-height:160px; }
-  h1 { font-size:18px; margin:0 0 6px; }
-  input, button { font:inherit; color:var(--fg); background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:10px; }
-  input { width:100%; margin:4px 0; }
-  button { cursor:pointer; }
-  button.primary { background:var(--acc); color:#fff; border-color:var(--acc); font-weight:600; width:100%; margin-top:6px; }
+  body { margin:0; font:15px/1.4 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+  #app { display:grid; grid-template-columns:var(--ancho, 400px) 8px 1fr; height:100vh; }
+  #divisor { cursor:col-resize; touch-action:none; background:var(--card); border-right:1px solid var(--line); }
+  #divisor:hover { background:var(--line); }
+  #side { overflow:auto; padding:14px; border-right:1px solid var(--line); }
+  #mapaCaja { position:relative; min-height:300px; }
+  #mapaCaja #map { position:absolute; inset:0; }
+  #btnMapaGrande { position:absolute; top:10px; left:56px; z-index:1000; box-shadow:0 1px 4px rgba(0,0,0,.35); }
+  body.mapaGrande #mapaCaja { position:fixed !important; inset:0; height:auto !important; z-index:3000; }
+  .cfgFila { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:4px 0; }
+  .cfgFila select { width:auto; }
+  .cfgFila input { width:90px; flex:none; }
+  h1 { font-size:19px; margin:0 0 4px; }
+  h2 { font-size:15px; margin:16px 0 6px; }
+  p.mut, .mut { color:var(--mut); font-size:13px; margin:2px 0 8px; }
+  label { display:block; font-size:13px; color:var(--mut); margin:8px 0 2px; }
+  input, select, textarea, button { font:inherit; color:var(--fg); background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:8px; }
+  input, select, textarea { width:100%; }
+  textarea { resize:vertical; min-height:56px; }
+  button { cursor:pointer; width:auto; }
+  button.primary { background:var(--acc); color:#fff; border-color:var(--acc); font-weight:600; }
   button:disabled { opacity:.45; cursor:not-allowed; }
+  .fila { display:flex; gap:6px; align-items:center; }
+  .fila > input { flex:1; }
+  .tabs { display:flex; gap:6px; margin:10px 0; }
+  .tabs button { flex:1; }
+  .tabs button.on { background:var(--acc); color:#fff; border-color:var(--acc); }
   .oculto { display:none !important; }
-  .mut { color:var(--mut); font-size:13px; }
-  .msg { min-height:1.3em; margin:6px 0; font-size:14px; }
+  #lista, #listaPanel { list-style:none; margin:0; padding:0; }
+  .pt { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px; margin:8px 0; }
+  .pt.sel { border-color:var(--acc); box-shadow:0 0 0 2px color-mix(in srgb, var(--acc) 30%, transparent); }
+  .ptHead { display:flex; gap:6px; align-items:center; margin-bottom:6px; }
+  .ptHead select { flex:1; padding:5px; }
+  .ptHead button { padding:4px 8px; }
+  .ptRadio { display:flex; align-items:center; gap:6px; margin-top:6px; font-size:13px; color:var(--mut); }
+  .ptRadio input { width:80px; padding:5px; }
+  .msg { min-height:1.3em; font-size:13px; margin:6px 0; }
   .err { color:var(--bad); } .okm { color:var(--ok); }
-  .pista { background:var(--bg); border:2px solid var(--acc); border-radius:10px; padding:10px; margin:8px 0; font-size:17px; }
-  .pista small { display:block; color:var(--mut); font-size:12px; margin-bottom:2px; }
-  #reloj { font-variant-numeric:tabular-nums; font-weight:700; }
-  #ranking { margin:4px 0 0; padding-left:22px; }
-  details { margin:8px 0; }
-  summary { cursor:pointer; color:var(--acc); }
-  .fila { display:flex; gap:6px; } .fila input { flex:1; }
-  .modo { background:var(--bg); border:1px dashed var(--acc); border-radius:8px; padding:8px; margin:6px 0; font-size:14px; }
-  .integ { display:grid; grid-template-columns:1fr 1fr 64px 38px; gap:6px; align-items:center; }
-  .integ input { margin:0; padding:8px; min-width:0; }
-  .integ button { padding:8px 0; }
-  #listaParts { display:grid; gap:6px; margin:6px 0; }
-  .cabParts { display:grid; grid-template-columns:1fr 1fr 64px 38px; gap:6px; font-size:12px; color:var(--mut); }
-  button.sec { width:100%; margin-top:6px; }
-  #visitados { list-style:none; margin:4px 0 8px; padding:0; }
-  #visitados li { display:flex; gap:8px; align-items:flex-start; padding:4px 0; border-bottom:1px solid var(--line); font-size:14px; }
-  #visitados .chk { flex:none; width:22px; height:22px; border-radius:50%; background:#0a7a2f; color:#fff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; }
-  .pin { background:#1565c0; color:#fff; border:2px solid #fff; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; box-shadow:0 1px 4px rgba(0,0,0,.4); }
+  .pin { background:var(--acc); color:#fff; border:2px solid #fff; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; box-shadow:0 1px 4px rgba(0,0,0,.4); }
+  .pin.sel { background:#e65100; }
   .pin.ok { background:#0a7a2f; }
-  #mapWrap { position:relative; flex:1; min-height:160px; }
-  #mapWrap #map { position:absolute; inset:0; min-height:0; }
-  #resizer { flex:none; height:16px; cursor:row-resize; touch-action:none; background:var(--card); border-top:1px solid var(--line); border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:center; }
-  #resizer::after { content:''; width:48px; height:4px; border-radius:2px; background:var(--mut); opacity:.6; }
-  #btnMapaGrande { position:absolute; top:10px; left:56px; z-index:1000; padding:6px 10px; box-shadow:0 1px 4px rgba(0,0,0,.35); }
-  body.mapaGrande #panel, body.mapaGrande #resizer { display:none; }
-  #miniBarra { position:absolute; left:8px; right:8px; bottom:26px; z-index:1000; background:var(--card); border:2px solid var(--acc); border-radius:10px; padding:8px; display:none; }
-  body.mapaGrande #miniBarra.activa { display:block; }
-  #miniBarra .fila { margin-top:6px; }
-  #miniBarra button { flex:1; font-weight:600; }
-  .barra { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
-  .barra button { padding:6px 10px; font-size:13px; flex:none; }
-  .part { background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:8px; margin:6px 0; }
-  .partHead { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
-  .partHead button { padding:4px 10px; }
-  .partGrid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
-  .partGrid input { margin:0; min-width:0; }
-  .partGrid .ancho { grid-column:1 / -1; }
-  .chkFila { display:flex; align-items:flex-start; gap:8px; font-size:14px; margin:6px 0 0; }
-  .chkFila input { width:auto; margin:3px 0 0; }
-  #textoDatos { font-size:13px; margin:6px 0; }
-  .consent { background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:8px; margin:8px 0; font-size:13px; }
-  .consent p { margin:4px 0; }
-  .tutor { grid-column:1 / -1; border:1px dashed var(--bad); border-radius:8px; padding:8px; margin-top:2px; }
-  .tutor b { color:var(--bad); font-size:13px; }
-  .tutor input[type=text], .tutor input[type=tel] { margin:4px 0; }
-  .puntaje { display:flex; gap:12px; flex-wrap:wrap; font-weight:700; margin:2px 0; }
-  .bonusTxt { font-weight:400; color:var(--mut); font-size:13px; }
-  .pistaExtra { background:var(--bg); border:1px dashed var(--acc); border-radius:8px; padding:8px; margin:6px 0; font-size:15px; }
-  .pistaExtra small { color:var(--mut); }
-  .hist { margin:4px 0 8px; padding-left:22px; font-size:14px; }
-  .codEq { font-weight:700; letter-spacing:2px; }
-  .unir { margin-top:10px; border-top:1px solid var(--line); padding-top:8px; }
+  .codigo { font-size:34px; font-weight:800; letter-spacing:4px; text-align:center; background:var(--card); border:2px dashed var(--acc); border-radius:10px; padding:8px; margin:8px 0; }
+  .equipo { display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px solid var(--line); cursor:pointer; }
+  .equipo.sel { font-weight:700; color:var(--acc); }
+  .eqDet { padding:4px 0 10px 12px; font-size:13px; border-bottom:1px solid var(--line); }
+  .eqDet ul { margin:2px 0 8px; padding-left:18px; }
+  .eqDet .mut { margin:4px 0 2px; }
+  .resp { font-family:ui-monospace, monospace; font-weight:700; }
+  @media (max-width: 820px) {
+    #app { grid-template-columns:1fr; height:auto; }
+    #divisor { display:none; }
+    #mapaCaja { order:-1; height:55vh; }
+    #side { border-right:0; }
+  }
+  @media print {
+    #mapaCaja, #divisor, .tabs, button, #vistaCrear, #vistaEntrar { display:none !important; }
+    #app { display:block; height:auto; } #side { overflow:visible; border:0; }
+  }
+  .histBox { background:var(--card,#f4f6f8); border:1px solid var(--line,#d9dce1); border-radius:8px; padding:6px 8px; margin:6px 0; }
+  .histBox ol { margin:4px 0; padding-left:22px; font-size:14px; }
+  .xtra { display:grid; grid-template-columns:1fr 70px 30px; gap:4px; margin-top:4px; }
+  .xtra input { min-width:0; margin:0; }
+  .tutorTxt { color:#b00020; font-size:13px; }
+  .codUnion { font-family:ui-monospace,monospace; font-weight:700; letter-spacing:1px; }
 </style>
 </head>
 <body>
-<div id="panel">
-  <h1 id="titulo">Búsqueda del tesoro</h1>
+<div id="app">
+  <div id="side">
+    <h1>Organizador</h1>
+    <p class="mut">Creá tu propia búsqueda del tesoro en cualquier plaza del mundo.</p>
 
-  <!-- Paso 1: código de partida -->
-  <div id="vistaCodigo" class="oculto">
-    <input id="codigoIn" maxlength="10" placeholder="Código de partida" style="text-transform:uppercase" autocomplete="off">
-    <button id="btnCodigo" class="primary">Continuar</button>
-    <div class="msg err" id="msgCodigo"></div>
-  </div>
-
-  <!-- Paso 2: nombre del equipo y participantes (también sirve para editarlos) -->
-  <div id="vistaEquipo" class="oculto">
-    <div class="mut" id="infoPartida"></div>
-    <div class="modo oculto" id="infoModo"></div>
-    <details id="detHistEquipo" style="margin:4px 0"><summary>Tabla histórica de esta partida</summary><ol id="histEquipo" class="hist"></ol></details>
-    <div id="modoUnirse" class="modo oculto"><b>Te unís a un equipo que ya existe.</b> Pedile el código de equipo (6 caracteres) a quien lo creó: aparece en su pantalla de juego.</div>
-    <input id="codigoEquipoIn" class="oculto" maxlength="10" placeholder="Código del equipo" style="text-transform:uppercase" autocomplete="off">
-    <input id="nombreEquipo" maxlength="40" placeholder="Nombre de tu equipo" autocomplete="off">
-    <b id="tituloParts">Participantes <span class="mut">(1, 2 o 3)</span></b>
-    <div class="consent oculto" id="consentBox"></div>
-    <div class="mut" id="textoDatos"></div>
-    <div id="listaParts"></div>
-    <button id="btnAgregarPart" type="button" class="sec">+ Agregar participante</button>
-    <button id="btnEquipo" type="button" class="primary">Entrar al juego</button>
-    <button id="btnCancelarEdicion" type="button" class="sec oculto">Cancelar</button>
-    <div class="msg err" id="msgEquipo"></div>
-    <div class="unir" id="bloqueUnir"><button id="btnUnirse" type="button" class="sec">Mi equipo ya existe: unirme con el código de equipo</button></div>
-  </div>
-
-  <!-- Paso 3: juego -->
-  <div id="vistaJuego" class="oculto">
-    <div class="barra">
-      <div>
-        <div id="equipo" class="mut"></div>
-        <div id="integrantes" class="mut"></div>
-      </div>
-      <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end">
-        <button id="btnEditar" type="button">Editar datos</button>
-        <button id="btnSalir" type="button">Salir de la partida</button>
-      </div>
+    <div class="tabs" id="tabs">
+      <button id="tabCrear" class="on">Crear partida nueva</button>
+      <button id="tabEntrar">Ya tengo una partida</button>
     </div>
-    <div class="mut">Código de equipo (para sumar a un compañero desde otro celular): <span class="codEq" id="codEq"></span></div>
-    <div class="puntaje"><span>Puntos: <span id="score">0</span></span><span>Tiempo: <span id="reloj">00:00:00</span></span><span id="avance"></span></div>
-    <div class="bonusTxt" id="bonusInfo"></div>
-    <div class="pista" id="cajaPista"><small id="pistaTit"></small><span id="pista"></span></div>
-    <div id="pistasExtra"></div>
-    <div class="modo oculto" id="ayudaRemoto">Juego a distancia: buscá el lugar en el mapa (podés cambiar a vista satélite), tocalo para marcarlo y confirmá.</div>
-    <div id="estado" class="mut">Esperando ubicación...</div>
-    <button id="btnLlegue" class="primary">Llegué al punto</button>
-    <div class="msg" id="msg"></div>
-    <details id="detRespaldo">
-      <summary>¿Mala señal GPS? Usá el código de respaldo</summary>
+
+    <!-- ===== Crear ===== -->
+    <div id="vistaCrear">
+      <label for="nombre">Nombre del juego</label>
+      <input id="nombre" maxlength="60" placeholder="Ej: El tesoro de la Plaza Mayor">
+      <label for="password">Contraseña de organizador (mínimo 6 caracteres)</label>
+      <input id="password" type="password" autocomplete="new-password" placeholder="La necesitás para volver a este panel">
+
+      <label for="modoJuego">Modo de juego</label>
+      <select id="modoJuego">
+        <option value="presencial">Presencial (GPS)</option>
+        <option value="remoto">A distancia (marcar en el mapa)</option>
+      </select>
+      <p class="mut" id="notaModo"></p>
+
+      <h2>Datos que se piden a los participantes</h2>
+      <p class="mut">Elegí qué datos completa cada participante al entrar (equipos de 1, 2 o 3 personas). El nombre y la edad siempre se piden (si alguien es menor de 18 se pide autorización de madre, padre o tutor), y todos deben aceptar el uso de sus datos personales.</p>
+      <div id="camposCfg"></div>
+
+      <h2>Puntaje</h2>
+      <p class="mut">Cada lugar da puntos y un bonus por velocidad que baja de a poco hasta 0. Las pistas adicionales descuentan puntos.</p>
+      <div class="cfgFila"><span>Puntos por lugar</span><input id="pBase" type="number" min="1" max="1000" value="100"></div>
+      <div class="cfgFila"><span>Bonus máximo por velocidad</span><input id="pBonus" type="number" min="0" max="1000" value="50"></div>
+      <div class="cfgFila"><span>Minutos hasta que el bonus llega a 0</span><input id="pMin" type="number" min="1" max="120" value="10"></div>
+      <div class="cfgFila"><span>Costo predeterminado de una pista adicional</span><input id="pCosto" type="number" min="1" max="1000" value="20"></div>
+
+      <h2>1. Elegí el lugar</h2>
       <div class="fila">
-        <input id="codigoResp" maxlength="10" placeholder="Código del cartel" autocomplete="off" style="text-transform:uppercase">
-        <button id="btnResp">Validar</button>
+        <input id="q" placeholder="Buscar plaza, calle o ciudad">
+        <button id="btnBuscar">Buscar</button>
       </div>
-    </details>
-    <div id="bloqueVisitados" class="oculto">
-      <b>Puntos encontrados</b>
-      <ul id="visitados"></ul>
-    </div>
-    <b>Ranking</b>
-    <ol id="ranking"></ol>
-    <details id="detHistJuego"><summary>Tabla histórica de esta partida</summary><ol id="histJuego" class="hist"></ol></details>
-  </div>
+      <div class="fila" style="margin-top:6px">
+        <button id="btnUbicacion">Usar mi ubicación</button>
+      </div>
+      <div class="msg mut" id="msgBuscar"></div>
 
-  <label class="mut oculto" id="lblEnsayo"><input type="checkbox" id="sim" style="width:auto"> Modo ensayo: tocá el mapa para simular tu ubicación</label>
-</div>
-<div id="resizer" title="Arrastrá para cambiar el tamaño del mapa" role="separator" aria-orientation="horizontal"></div>
-<div id="mapWrap">
-  <div id="map"></div>
-  <button id="btnMapaGrande" type="button">⛶ Agrandar mapa</button>
-  <div id="miniBarra">
-    <div id="miniPista"></div>
-    <div class="msg" id="miniMsg"></div>
-    <div class="fila"><button id="miniLlegue" type="button" class="primary">Llegué al punto</button></div>
+      <h2>2. Marcá los puntos</h2>
+      <p class="mut">Elegí el tipo de pista y tocá el mapa donde está ese lugar. Podés arrastrar el punto para ajustarlo.</p>
+      <div class="fila">
+        <select id="tipoNuevo" style="flex:2"></select>
+        <input id="radioNuevo" type="number" min="3" max="100" value="15" style="flex:1" title="Radio en metros">
+        <span class="mut">m</span>
+      </div>
+      <div class="msg" id="msgMapa"></div>
+      <ol id="lista"></ol>
+
+      <div class="msg err" id="msgCrear"></div>
+      <button id="btnCrear" class="primary" disabled>Crear partida</button>
+    </div>
+
+    <!-- ===== Entrar a una partida existente ===== -->
+    <div id="vistaEntrar" class="oculto">
+      <label for="codigoEntrar">Código de partida</label>
+      <input id="codigoEntrar" maxlength="10" placeholder="Ej: K7M2QX" style="text-transform:uppercase">
+      <label for="passEntrar">Contraseña de organizador</label>
+      <input id="passEntrar" type="password" autocomplete="current-password">
+      <div class="msg err" id="msgEntrar"></div>
+      <button id="btnEntrar" class="primary">Entrar</button>
+    </div>
+
+    <!-- ===== Panel de la partida ===== -->
+    <div id="vistaPanel" class="oculto">
+      <h2 id="panelNombre"></h2>
+      <p class="mut" id="panelModo"></p>
+      <p class="mut">Código de partida (compartilo con los jugadores):</p>
+      <div class="codigo" id="panelCodigo"></div>
+      <div class="fila">
+        <input id="panelLink" readonly>
+        <button id="btnCopiar">Copiar</button>
+      </div>
+      <div class="msg okm" id="msgCopiar"></div>
+
+      <h2>Estado del juego</h2>
+      <p class="mut" id="estadoJuego"></p>
+      <button id="btnIniciar" class="primary">▶ Iniciar el juego</button>
+      <div class="msg" id="msgIniciar"></div>
+
+      <h2>Tabla histórica</h2>
+      <div class="histBox"><ol id="histPanel"></ol></div>
+      <p class="mut" id="puntajeTxt"></p>
+
+      <h2>Equipos y ranking</h2>
+      <p class="mut" id="leyenda"></p>
+      <div id="equipos"></div>
+      <div class="fila" style="margin-top:8px">
+        <button id="btnActualizar">Actualizar</button>
+        <button id="btnReiniciar">Reiniciar partida</button>
+      </div>
+      <div class="msg" id="msgPanel"></div>
+
+      <h2>Puntos y códigos de respaldo</h2>
+      <p class="mut" id="notaCodigos">Cada punto tiene un código manual por si falla el GPS. Escribilo en un cartel en ese lugar. Solo vos lo ves.</p>
+      <ol id="listaPanel"></ol>
+      <div class="fila" style="margin-top:8px">
+        <a href="datos.html" target="_blank" rel="noopener"><button type="button">Datos personales</button></a>
+        <button id="btnImprimir">Imprimir</button>
+        <button id="btnSalir">Salir</button>
+      </div>
+    </div>
+  </div>
+  <div id="divisor" title="Arrastrá para cambiar el ancho del panel" role="separator" aria-orientation="vertical"></div>
+  <div id="mapaCaja">
+    <div id="map"></div>
+    <button id="btnMapaGrande" type="button">⛶ Agrandar mapa</button>
   </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const $ = id => document.getElementById(id);
-const LS = 'tp-tesoro-equipo';
-function guardar(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
-function leer(k)       { try { return localStorage.getItem(k); } catch (e) { return null; } }
-function borrar(k)     { try { localStorage.removeItem(k); } catch (e) {} }
-function vista(cual) {
-  ['vistaCodigo', 'vistaEquipo', 'vistaJuego'].forEach(id => $(id).classList.toggle('oculto', id !== cual));
-}
+const SESION = 'tp-admin';
+function guardar(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} }
+function leer(k)       { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
+function borrar(k)     { try { sessionStorage.removeItem(k); } catch (e) {} }
 
-fetch('config.json').then(r => r.json()).then(iniciar).catch(e => {
-  $('titulo').textContent = 'No se pudo leer config.json (' + e.message + ')';
+fetch('../config.json').then(r => r.json()).then(iniciar).catch(e => {
+  document.querySelector('#side').insertAdjacentText('afterbegin', 'No se pudo leer config.json: ' + e.message);
 });
 
 function iniciar(cfg) {
-  const SRV = cfg.servidor;
-  const params = new URLSearchParams(location.search);
-  if (params.get('ensayo') === '1') $('lblEnsayo').classList.remove('oculto');
+  const SRV = cfg.servidor, PLANT = cfg.plantillas || [];
+  const plant = tipo => PLANT.find(t => t.tipo === tipo);
 
   async function rpc(nombre, args) {
     const r = await fetch(SRV.url + '/rest/v1/rpc/' + nombre, {
@@ -187,603 +218,497 @@ function iniciar(cfg) {
     });
     const t = await r.json().catch(() => null);
     if (!r.ok) throw new Error((t && (t.message || t.hint)) || ('Error ' + r.status));
+    if (t && !Array.isArray(t) && typeof t.error === 'string') throw new Error(t.error);
     return t;
   }
 
-  // ---------- Mapa (contexto, tu posición y los puntos que YA encontraron; los que faltan NO se muestran) ----------
-  const map = L.map('map').setView([20, 0], 2);
-  const calles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  // ---------- Mapa ----------
+  const map = L.map('map', { worldCopyJump: true }).setView([20, 0], 2);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
   }).addTo(map);
-  const satelite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    maxZoom: 19, attribution: 'Tiles &copy; Esri'
-  });
-  const capaVisitados = L.layerGroup().addTo(map);
-  let yo = null, precisionCirculo = null, pos = null, centrado = false;
-  const sim = $('sim');
+  const capa = L.layerGroup().addTo(map);
 
-  // ---------- Tamaño del mapa: arrastrar el borde, o agrandar a pantalla completa ----------
-  const panelEl = $('panel');
-  if (window.ResizeObserver) new ResizeObserver(() => map.invalidateSize()).observe($('mapWrap'));
-  $('resizer').addEventListener('pointerdown', e => {
+  let modo = 'crear';
+  let puntos = [];        // {tipo, pista, lat, lng, radioM, marker, circle}
+  let sel = -1;
+
+  // estado: 'ok' (visitado, verde), true/'sel' (seleccionado, naranja) o falso (normal)
+  const icono = (n, estado) => L.divIcon({
+    className: '', iconSize: [28, 28], iconAnchor: [14, 14],
+    html: '<div class="pin' + (estado === 'ok' ? ' ok' : estado ? ' sel' : '') + '">' + Number(n) + '</div>'
+  });
+  function tip(texto) { const s = document.createElement('span'); s.textContent = texto; return s; }
+
+  // ---------- Selector de plantillas ----------
+  PLANT.forEach(t => {
+    const o = document.createElement('option');
+    o.value = t.tipo; o.textContent = t.nombre; $('tipoNuevo').appendChild(o);
+  });
+
+  // ---------- Tamaño del mapa: ancho del panel arrastrable y pantalla completa ----------
+  if (window.ResizeObserver) new ResizeObserver(() => map.invalidateSize()).observe($('mapaCaja'));
+  $('divisor').addEventListener('pointerdown', e => {
     e.preventDefault();
-    const r = $('resizer');
-    try { r.setPointerCapture(e.pointerId); } catch (err) {}
-    const mover = ev => {
-      const h = Math.min(window.innerHeight - 150, Math.max(90, ev.clientY - panelEl.getBoundingClientRect().top));
-      panelEl.style.maxHeight = 'none'; panelEl.style.flex = 'none'; panelEl.style.height = h + 'px';
-    };
-    const soltar = () => ['pointermove', 'pointerup', 'pointercancel'].forEach((t, i) => r.removeEventListener(t, i ? soltar : mover));
-    r.addEventListener('pointermove', mover);
-    r.addEventListener('pointerup', soltar);
-    r.addEventListener('pointercancel', soltar);
+    const d = $('divisor');
+    try { d.setPointerCapture(e.pointerId); } catch (err) {}
+    const mover = ev => $('app').style.setProperty('--ancho', Math.min(window.innerWidth - 240, Math.max(260, ev.clientX)) + 'px');
+    const soltar = () => ['pointermove', 'pointerup', 'pointercancel'].forEach((t, i) => d.removeEventListener(t, i ? soltar : mover));
+    d.addEventListener('pointermove', mover); d.addEventListener('pointerup', soltar); d.addEventListener('pointercancel', soltar);
   });
   $('btnMapaGrande').onclick = () => {
     const g = document.body.classList.toggle('mapaGrande');
     $('btnMapaGrande').textContent = g ? '↙ Volver' : '⛶ Agrandar mapa';
     setTimeout(() => map.invalidateSize(), 50);
   };
-  // En pantalla completa del mapa se ve la pista y se puede confirmar desde ahí
-  $('miniLlegue').onclick = () => $('btnLlegue').click();
-  new MutationObserver(() => { $('miniMsg').textContent = $('msg').textContent; $('miniMsg').className = $('msg').className; })
-    .observe($('msg'), { childList: true, characterData: true, subtree: true, attributes: true });
 
-  const PLANT = cfg.plantillas || [];
-  const nombreTipo = tipo => { const t = PLANT.find(x => x.tipo === tipo); return t ? t.nombre : tipo; };
-
-  // ---------- Estado ----------
-  let equipoId = null, codigo = null, partida = null;
-  let inicioMs = 0, offsetMs = 0, finMs = 0, terminado = false;
-  let modo = 'presencial', controlCapas = null;
-  let modoForm = 'crear', ultimoProgreso = null;
-  const CONSENT_VERSION = (cfg.consentimiento && cfg.consentimiento.version) ? String(cfg.consentimiento.version) : '2026-10-21';
-  let modoUnirse = false, pistaUsando = false;
-
-  function centrar(c) { if (!centrado && c) { map.setView([c.lat, c.lng], modo === 'remoto' ? 16 : 17); centrado = true; } }
-
-  function limpiarMarca() {
-    pos = null;
-    if (yo) { map.removeLayer(yo); map.removeLayer(precisionCirculo); yo = null; precisionCirculo = null; }
-  }
-
-  // Presencial: usa el GPS. Remoto: no se pide GPS; el equipo marca el lugar tocando el mapa.
-  function aplicarModo(m) {
-    const nuevo = (m === 'remoto') ? 'remoto' : 'presencial';
-    if (nuevo !== modo) limpiarMarca();
-    modo = nuevo;
-    const remoto = modo === 'remoto';
-    $('ayudaRemoto').classList.toggle('oculto', !remoto);
-    $('estado').classList.toggle('oculto', remoto);
-    $('lblEnsayo').classList.toggle('oculto', remoto || params.get('ensayo') !== '1');
-    $('btnLlegue').textContent = remoto ? 'Confirmar este lugar' : 'Llegué al punto';
-    $('miniLlegue').textContent = $('btnLlegue').textContent;
-    if (remoto) {
-      dejarDeMirar();
-      if (!controlCapas) controlCapas = L.control.layers({ 'Mapa': calles, 'Satélite': satelite }, null, { position: 'topright' }).addTo(map);
-    } else {
-      if (controlCapas) {
-        map.removeControl(controlCapas); controlCapas = null;
-        if (map.hasLayer(satelite)) map.removeLayer(satelite);
-        if (!map.hasLayer(calles)) calles.addTo(map);
-      }
-      mirar();
-    }
-  }
-
-  // ---------- Puntos ya encontrados: marcados en el mapa y en la lista ----------
-  function pintarVisitados(lista) {
-    capaVisitados.clearLayers();
-    const ul = $('visitados'); ul.textContent = '';
-    $('bloqueVisitados').classList.toggle('oculto', !lista.length);
-    lista.forEach(v => {
-      const icono = L.divIcon({ className: '', iconSize: [28, 28], iconAnchor: [14, 14],
-        html: '<div class="pin ok">' + Number(v.orden) + '</div>' });
-      const tip = document.createElement('span');
-      tip.textContent = v.orden + '. ' + nombreTipo(v.tipo) + ' ✓';
-      L.marker([v.lat, v.lng], { icon: icono, keyboard: false }).bindTooltip(tip).addTo(capaVisitados);
-      const li = document.createElement('li'); li.style.cursor = 'pointer';
-      const chk = document.createElement('span'); chk.className = 'chk'; chk.textContent = '✓';
-      const txt = document.createElement('span'); txt.textContent = v.orden + '. ' + nombreTipo(v.tipo) + ' — ' + v.pista;
-      li.append(chk, txt);
-      li.onclick = () => map.setView([v.lat, v.lng], Math.max(map.getZoom(), 17));
-      ul.appendChild(li);
+  // ---------- Datos a pedir a los participantes ----------
+  const CAMPOS = [
+    ['nombre', 'Nombre', 'req'], ['apellido', 'Apellido', 'req'], ['edad', 'Edad', 'req'],
+    ['telefono', 'Teléfono / número', 'off'], ['instagram', 'Instagram', 'off']
+  ];
+  if (cfg.costoPistaPorDefecto) $('pCosto').value = cfg.costoPistaPorDefecto;
+  if (cfg.puntaje) { $('pBase').value = cfg.puntaje.base; $('pBonus').value = cfg.puntaje.bonusMax; $('pMin').value = cfg.puntaje.bonusMinutos; }
+  const selCampos = {};
+  CAMPOS.forEach(([k, etiqueta, def]) => {
+    const fila = document.createElement('div'); fila.className = 'cfgFila';
+    const l = document.createElement('span'); l.textContent = etiqueta;
+    const sel = document.createElement('select'); sel.setAttribute('aria-label', etiqueta);
+    [['off', 'No pedir'], ['opt', 'Opcional'], ['req', 'Obligatorio']].forEach(([v, t]) => {
+      const o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o);
     });
-  }
+    sel.value = def;
+    if (k === 'nombre' || k === 'edad') { sel.disabled = true; }       // la edad siempre se pide (define si hace falta tutor)
+    if (false) {}       // el nombre siempre es obligatorio
+    selCampos[k] = sel; fila.append(l, sel); $('camposCfg').appendChild(fila);
+  });
+  const camposElegidos = () => Object.fromEntries(CAMPOS.map(([k]) => [k, selCampos[k].value]));
 
-  // ---------- Paso 1 y 2: partida y equipo ----------
-  async function abrirPartida(cod) {
-    cod = (cod || '').trim().toUpperCase();
-    $('msgCodigo').textContent = '';
-    if (!cod) { vista('vistaCodigo'); return; }
+  // ---------- Modo de juego (al crear) ----------
+  function notaModo() {
+    const remoto = $('modoJuego').value === 'remoto';
+    $('radioNuevo').value = remoto ? (cfg.radioPorDefectoRemotoM || 50) : (cfg.radioPorDefectoM || 15);
+    $('notaModo').textContent = remoto
+      ? 'Los jugadores no necesitan estar en el lugar: marcan en el mapa dónde creen que está cada punto (con vista satélite). Escribí pistas que se puedan resolver mirando el mapa o Street View y usá un radio más grande (se sugiere 50 m; máximo 100 m). Se aplica a los puntos que agregues desde ahora.'
+      : 'Los jugadores van hasta cada lugar y se valida con el GPS del celular.';
+  }
+  $('modoJuego').onchange = notaModo;
+  notaModo();
+
+  // ---------- Buscar lugar ----------
+  async function buscar() {
+    const q = $('q').value.trim();
+    if (!q) return;
+    $('msgBuscar').textContent = 'Buscando...';
     try {
-      const info = await rpc('partida_info', { p_codigo: cod });
-      if (!info) { $('codigoIn').value = cod; $('msgCodigo').textContent = 'No existe una partida con ese código.'; vista('vistaCodigo'); return; }
-      codigo = info.codigo; partida = info;
-      aplicarModo(info.modo);
-      $('titulo').textContent = info.nombre;
-      $('infoPartida').textContent = 'Partida ' + info.codigo + ' · ' + info.totalPuntos + ' puntos';
-      $('infoModo').textContent = info.modo === 'remoto'
-        ? 'Juego a distancia: no hace falta estar en el lugar. Van a marcar cada lugar en el mapa.'
-        : 'Juego presencial: tienen que estar en cada lugar y permitir el acceso a la ubicación del celular.';
-      $('infoModo').classList.remove('oculto');
-      setUnirse(false);
-      setModoForm('crear');
-      aplicarCampos(info.campos);
-      agregarParticipante();
-      centrar(info.centro);
-      pintarConsentimiento();
-      cargarHistorial($('histEquipo'));
-      vista('vistaEquipo');
+      const r = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=es&q=' + encodeURIComponent(q));
+      const j = await r.json();
+      if (!j.length) { $('msgBuscar').textContent = 'No encontré ese lugar. Probá con otra búsqueda.'; return; }
+      map.setView([Number(j[0].lat), Number(j[0].lon)], 18);
+      $('msgBuscar').textContent = j[0].display_name;
     } catch (e) {
-      $('msgCodigo').textContent = 'No se pudo conectar: ' + e.message; vista('vistaCodigo');
+      $('msgBuscar').textContent = 'No se pudo buscar ahora. Podés mover el mapa a mano.';
     }
   }
-  $('btnCodigo').onclick = () => abrirPartida($('codigoIn').value);
-  $('codigoIn').onkeydown = e => { if (e.key === 'Enter') $('btnCodigo').click(); };
+  $('btnBuscar').onclick = buscar;
+  $('q').onkeydown = e => { if (e.key === 'Enter') buscar(); };
+  $('btnUbicacion').onclick = () => {
+    if (!navigator.geolocation) { $('msgBuscar').textContent = 'Este navegador no tiene geolocalización.'; return; }
+    $('msgBuscar').textContent = 'Buscando tu ubicación...';
+    navigator.geolocation.getCurrentPosition(
+      p => { map.setView([p.coords.latitude, p.coords.longitude], 18); $('msgBuscar').textContent = 'Listo.'; },
+      e => { $('msgBuscar').textContent = 'No se pudo obtener tu ubicación (' + e.message + ').'; },
+      { enableHighAccuracy: true, timeout: 15000 });
+  };
 
-  // ---------- Registro / edición de participantes (los datos pedidos los elige el organizador) ----------
-  const MAX_PART = 3;
-  const CAMPOS_BASE = { nombre: 'req', apellido: 'req', edad: 'req', telefono: 'off', instagram: 'off' };
-  const ETIQ = { nombre: 'Nombre', apellido: 'Apellido', edad: 'Edad', telefono: 'Teléfono', instagram: 'Instagram (usuario, sin @)' };
-  const ETIQ_TXT = { nombre: 'nombre', apellido: 'apellido', edad: 'edad', telefono: 'teléfono', instagram: 'Instagram' };
-  let campos = Object.assign({}, CAMPOS_BASE);
-
-  function aplicarCampos(c) {
-    campos = Object.assign({}, CAMPOS_BASE, c || {});
-    campos.nombre = 'req'; campos.edad = 'req';
-    const pedidos = Object.keys(ETIQ_TXT).filter(k => campos[k] !== 'off').map(k => ETIQ_TXT[k] + (campos[k] === 'opt' ? ' (opcional)' : ''));
-    $('textoDatos').textContent = 'Datos que pide el organizador: ' + pedidos.join(', ') +
-      '. Se usan solo para esta actividad, los ve únicamente quien organiza el juego y no se publican (el ranking muestra solo el nombre del equipo).';
-    $('listaParts').textContent = '';
-    refrescarBtnAgregar();
+  // ---------- Puntos ----------
+  function pintarMarcadores() {
+    puntos.forEach((p, i) => {
+      p.marker.setIcon(icono(i + 1, i === sel));
+      p.circle.setStyle({ color: i === sel ? '#e65100' : '#1565c0' });
+    });
   }
 
-  function setModoForm(m) {
-    modoForm = m;
-    $('btnEquipo').textContent = m === 'editar' ? 'Guardar cambios' : 'Entrar al juego';
-    $('btnCancelarEdicion').classList.toggle('oculto', m !== 'editar');
-    $('infoModo').classList.toggle('oculto', m === 'editar' || modoUnirse);
-    $('bloqueUnir').classList.toggle('oculto', m === 'editar');
-    $('msgEquipo').textContent = '';
+  function agregarPunto(lat, lng) {
+    if (puntos.length >= 30) { $('msgMapa').textContent = 'Máximo 30 puntos.'; return; }
+    const tipo = $('tipoNuevo').value;
+    const t = plant(tipo);
+    const radio = Math.min(100, Math.max(3, Number($('radioNuevo').value) || cfg.radioPorDefectoM || 15));
+    const p = { tipo, pista: t ? t.pista : '', lat, lng, radioM: radio, pistasExtra: [] };
+    p.marker = L.marker([lat, lng], { draggable: true, icon: icono(puntos.length + 1, false) }).addTo(capa);
+    p.circle = L.circle([lat, lng], { radius: radio, color: '#1565c0', fillOpacity: 0.15 }).addTo(capa);
+    p.marker.on('drag', e => p.circle.setLatLng(e.target.getLatLng()));
+    p.marker.on('dragend', e => { const ll = e.target.getLatLng(); p.lat = ll.lat; p.lng = ll.lng; });
+    p.marker.on('click', () => { sel = puntos.indexOf(p); pintarMarcadores(); marcarSeleccion(); });
+    puntos.push(p);
+    sel = puntos.length - 1;
+    pintarMarcadores(); renderLista(); validar();
   }
 
-  function pintarConsentimiento() {
-    const c = cfg.consentimiento, box = $('consentBox');
-    box.textContent = '';
-    if (!c) { box.classList.add('oculto'); return; }
-    const t = document.createElement('b'); t.textContent = c.titulo || 'Uso de tus datos personales'; box.appendChild(t);
-    (c.parrafos || []).forEach(x => { const p = document.createElement('p'); p.textContent = x; box.appendChild(p); });
-    if (c.contacto) { const p = document.createElement('p'); p.textContent = 'Contacto: ' + c.contacto; box.appendChild(p); }
-    box.classList.remove('oculto');
+  function quitarPunto(i) {
+    const p = puntos[i];
+    capa.removeLayer(p.marker); capa.removeLayer(p.circle);
+    puntos.splice(i, 1);
+    sel = Math.min(sel, puntos.length - 1);
+    pintarMarcadores(); renderLista(); validar();
   }
 
-  // Unirse a un equipo ya creado (desde otra pantalla): código de equipo + datos de quien se une
-  function setUnirse(si) {
-    modoUnirse = si;
-    $('modoUnirse').classList.toggle('oculto', !si);
-    $('codigoEquipoIn').classList.toggle('oculto', !si);
-    $('nombreEquipo').classList.toggle('oculto', si);
-    $('btnUnirse').textContent = si ? 'Cancelar: crear un equipo nuevo' : 'Mi equipo ya existe: unirme con el código de equipo';
-    $('btnEquipo').textContent = si ? 'Unirme al equipo' : 'Entrar al juego';
-    $('infoModo').classList.toggle('oculto', si);
-    $('tituloParts').firstChild.textContent = si ? 'Tus datos ' : 'Participantes ';
-    $('tituloParts').lastChild.textContent = si ? '' : '(1, 2 o 3)';
-    $('msgEquipo').textContent = '';
-    $('btnAgregarPart').classList.toggle('oculto', si);
-    $('listaParts').textContent = '';
-    agregarParticipante();
+  function moverPunto(i, d) {
+    const j = i + d;
+    if (j < 0 || j >= puntos.length) return;
+    [puntos[i], puntos[j]] = [puntos[j], puntos[i]];
+    sel = j;
+    pintarMarcadores(); renderLista();
   }
-  $('btnUnirse').onclick = () => setUnirse(!modoUnirse);
 
-  // ---------- Tabla histórica ----------
-  const fmtT = s => { s = Math.max(0, Math.round(s)); return pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s / 60) % 60) + ':' + pad(s % 60); };
-  async function cargarHistorial(ol) {
-    if (!codigo) return;
-    try {
-      const filas = await rpc('historial', { p_codigo: codigo });
-      ol.textContent = '';
-      if (!filas.length) { const li = document.createElement('li'); li.textContent = 'Todavía no terminó ningún equipo.'; li.style.listStyle = 'none'; ol.appendChild(li); return; }
-      filas.forEach(f => {
-        const li = document.createElement('li');
-        li.append(f.equipo + ' — ' + f.score + ' pts — ' + fmtT(f.tiempoSeg));
-        const sub = document.createElement('div'); sub.className = 'mut';
-        sub.textContent = (f.integrantes ? f.integrantes + ' · ' : '') + 'Jugaron el ' +
-          new Date(f.inicio || f.fecha).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-        li.appendChild(sub); ol.appendChild(li);
+  function marcarSeleccion() {
+    Array.from($('lista').children).forEach((el, j) => el.classList.toggle('sel', j === sel));
+  }
+
+  function renderLista() {
+    const ol = $('lista');
+    ol.textContent = '';
+    puntos.forEach((p, i) => {
+      const li = document.createElement('li');
+      li.className = 'pt' + (i === sel ? ' sel' : '');
+      const head = document.createElement('div'); head.className = 'ptHead';
+      const num = document.createElement('b'); num.textContent = (i + 1) + '.';
+      const tipo = document.createElement('select');
+      PLANT.forEach(t => {
+        const o = document.createElement('option');
+        o.value = t.tipo; o.textContent = t.nombre; if (t.tipo === p.tipo) o.selected = true;
+        tipo.appendChild(o);
       });
-    } catch (e) { /* secundario */ }
-  }
+      const arriba = document.createElement('button'); arriba.textContent = '↑'; arriba.title = 'Subir';
+      const abajo = document.createElement('button'); abajo.textContent = '↓'; abajo.title = 'Bajar';
+      const borra = document.createElement('button'); borra.textContent = '✕'; borra.title = 'Quitar punto';
+      head.append(num, tipo, arriba, abajo, borra);
 
-  function refrescarBtnAgregar() { $('btnAgregarPart').disabled = $('listaParts').children.length >= MAX_PART; }
-  function renumerar() {
-    Array.from($('listaParts').children).forEach((c, i) => { c.querySelector('.partTit').textContent = 'Participante ' + (i + 1); });
-  }
+      const ta = document.createElement('textarea');
+      ta.maxLength = 300; ta.value = p.pista; ta.placeholder = 'Escribí la pista que van a leer los jugadores';
+      ta.oninput = () => { p.pista = ta.value; validar(); };
 
-  function agregarParticipante(datos) {
-    const lista = $('listaParts');
-    if (lista.children.length >= MAX_PART) return;
-    datos = datos || {};
-    const card = document.createElement('div'); card.className = 'part';
-    const head = document.createElement('div'); head.className = 'partHead';
-    const tit = document.createElement('b'); tit.className = 'partTit';
-    const quitar = document.createElement('button'); quitar.type = 'button'; quitar.textContent = 'Quitar';
-    quitar.onclick = () => { if (lista.children.length > 1) { card.remove(); renumerar(); refrescarBtnAgregar(); } };
-    head.append(tit, quitar);
+      tipo.onchange = () => {
+        p.tipo = tipo.value;
+        const t = plant(p.tipo);
+        if (t && t.pista) { p.pista = t.pista; ta.value = p.pista; }
+        validar();
+      };
+      arriba.onclick = e => { e.stopPropagation(); moverPunto(i, -1); };
+      abajo.onclick  = e => { e.stopPropagation(); moverPunto(i, 1); };
+      borra.onclick  = e => { e.stopPropagation(); quitarPunto(i); };
 
-    const grid = document.createElement('div'); grid.className = 'partGrid';
-    const refs = {};
-    ['nombre', 'apellido', 'edad', 'telefono', 'instagram'].forEach(k => {
-      if (campos[k] === 'off') return;
-      const i = document.createElement('input');
-      i.placeholder = ETIQ[k] + (campos[k] === 'opt' ? ' (opcional)' : '');
-      i.setAttribute('aria-label', i.placeholder); i.autocomplete = 'off';
-      if (k === 'edad') { i.type = 'number'; i.min = 1; i.max = 120; i.inputMode = 'numeric'; }
-      else if (k === 'telefono') { i.type = 'tel'; i.maxLength = 25; }
-      else i.maxLength = (k === 'instagram') ? 31 : 40;
-      if (datos[k] != null) i.value = datos[k];
-      if (k === 'telefono' || k === 'instagram') i.classList.add('ancho');
-      refs[k] = i; grid.appendChild(i);
-    });
+      const rr = document.createElement('div'); rr.className = 'ptRadio';
+      const rin = document.createElement('input'); rin.type = 'number'; rin.min = 3; rin.max = 100; rin.value = p.radioM;
+      rin.oninput = () => {
+        const v = Math.min(100, Math.max(3, Number(rin.value) || 3));
+        p.radioM = v; p.circle.setRadius(v);
+      };
+      rr.append('Radio:', rin, 'm');
 
-    // Menores de 18: autorización de madre, padre o tutor
-    const tutor = document.createElement('div'); tutor.className = 'tutor oculto';
-    const tt = document.createElement('b'); tt.textContent = 'Es menor de 18: necesitamos la autorización de su madre, padre o tutor.';
-    const tn = document.createElement('input'); tn.type = 'text'; tn.maxLength = 80; tn.placeholder = 'Nombre y apellido de madre, padre o tutor'; tn.setAttribute('aria-label', tn.placeholder);
-    const ttl = document.createElement('input'); ttl.type = 'tel'; ttl.maxLength = 25; ttl.placeholder = 'Teléfono de madre, padre o tutor'; ttl.setAttribute('aria-label', ttl.placeholder);
-    const la = document.createElement('label'); la.className = 'chkFila';
-    const ta = document.createElement('input'); ta.type = 'checkbox';
-    la.append(ta, 'Declaro que soy la madre, el padre o el tutor y autorizo a este menor a participar y al uso de sus datos personales para esta actividad.');
-    tutor.append(tt, tn, ttl, la);
-    if (datos.tutorNombre) tn.value = datos.tutorNombre;
-    if (datos.tutorTelefono) ttl.value = datos.tutorTelefono;
-    ta.checked = !!datos.autorizacionTutor;
-    refs.tutorNombre = tn; refs.tutorTelefono = ttl; refs.autorTutor = ta; refs.tutorBox = tutor;
-    const syncMenor = () => { const e = parseInt(refs.edad.value, 10); tutor.classList.toggle('oculto', !(e >= 1 && e < 18)); };
-    refs.edad.addEventListener('input', syncMenor); syncMenor();
-    grid.appendChild(tutor);
-
-    const extra = document.createElement('div');
-    if (refs.instagram) {
-      const l = document.createElement('label'); l.className = 'chkFila';
-      const sin = document.createElement('input'); sin.type = 'checkbox';
-      sin.checked = !!datos.sinInstagram;
-      const sync = () => { refs.instagram.disabled = sin.checked; if (sin.checked) refs.instagram.value = ''; };
-      sin.onchange = sync; sync();
-      l.append(sin, 'No tengo Instagram');
-      refs.sin = sin; extra.appendChild(l);
-    }
-    const l2 = document.createElement('label'); l2.className = 'chkFila';
-    const ac = document.createElement('input'); ac.type = 'checkbox'; ac.checked = !!datos.acepto;
-    l2.append(ac, 'Acepto expresamente el uso de mis datos personales para esta actividad (según el texto de arriba).');
-    refs.acepto = ac; extra.appendChild(l2);
-
-    card.append(head, grid, extra);
-    card._refs = refs;
-    lista.appendChild(card);
-    renumerar(); refrescarBtnAgregar();
-  }
-
-  function leerParticipantes() {
-    return Array.from($('listaParts').children).map((card, i) => {
-      const r = card._refs, n = 'Participante ' + (i + 1) + ': ';
-      const val = k => (r[k] ? r[k].value.trim() : '');
-      const p = { nombre: val('nombre'), acepto: r.acepto.checked };
-      if (p.nombre.length < 2) throw new Error(n + 'completá el nombre.');
-      if (r.apellido) { p.apellido = val('apellido'); if (campos.apellido === 'req' && !p.apellido) throw new Error(n + 'completá el apellido.'); }
-      p.edad = val('edad');
-      if (!p.edad) throw new Error(n + 'completá la edad.');
-      if (!(/^\d{1,3}$/.test(p.edad) && +p.edad >= 1 && +p.edad <= 120)) throw new Error(n + 'poné una edad válida (de 1 a 120).');
-      if (+p.edad < 18) {
-        p.tutorNombre = val('tutorNombre'); p.tutorTelefono = val('tutorTelefono'); p.autorizacionTutor = r.autorTutor.checked;
-        if (p.tutorNombre.length < 5 || p.tutorNombre.indexOf(' ') < 0) throw new Error(n + 'es menor de 18: escribí nombre y apellido de la madre, padre o tutor.');
-        if (!/^\+?[0-9 ()-]{6,25}$/.test(p.tutorTelefono)) throw new Error(n + 'es menor de 18: falta un teléfono válido de la madre, padre o tutor.');
-        if (!p.autorizacionTutor) throw new Error(n + 'es menor de 18: la madre, padre o tutor tiene que marcar la autorización.');
-      }
-      if (r.telefono) { p.telefono = val('telefono'); if (campos.telefono === 'req' && !p.telefono) throw new Error(n + 'completá el teléfono.'); }
-      if (r.instagram) {
-        p.sinInstagram = r.sin.checked; p.instagram = val('instagram');
-        if (campos.instagram === 'req' && !p.sinInstagram && !p.instagram) throw new Error(n + 'completá el Instagram o marcá «No tengo Instagram».');
-      }
-      if (!p.acepto) throw new Error(n + 'tiene que aceptar el uso de sus datos personales.');
-      return p;
-    });
-  }
-  $('btnAgregarPart').onclick = () => agregarParticipante();
-
-  $('btnEquipo').onclick = async () => {
-    $('msgEquipo').textContent = '';
-    const nombreEquipo = $('nombreEquipo').value.trim();
-    let enviando = false;
-    try {
-      if (!modoUnirse && nombreEquipo.length < 2) throw new Error('El nombre del equipo es muy corto.');
-      if (modoUnirse && $('codigoEquipoIn').value.trim().length < 4) throw new Error('Escribí el código del equipo.');
-      const participantes = leerParticipantes();
-      $('btnEquipo').disabled = true; enviando = true;
-      if (modoUnirse && modoForm !== 'editar') {
-        const r = await rpc('unirse_equipo', { p_codigo: codigo, p_codigo_equipo: $('codigoEquipoIn').value.trim().toUpperCase(),
-                                               p_participantes: participantes, p_version: CONSENT_VERSION });
-        if (!r.ok) {
-          throw new Error(r.motivo === 'codigo_incorrecto' ? 'Ese código de equipo no existe en esta partida.'
-            : r.motivo === 'demasiados_intentos' ? 'Demasiados intentos incorrectos. Esperá un par de minutos.'
-            : 'No se pudo unir al equipo (' + r.motivo + ').');
+      // Importante: al hacer clic DENTRO de un campo (pista, radio, tipo) NO se reconstruye la lista,
+      // porque eso destruía el campo y se perdía el foco (no dejaba escribir).
+      li.onclick = ev => {
+        const enCampo = ev.target.closest && ev.target.closest('input, textarea, select, button');
+        if (sel !== i) { sel = i; pintarMarcadores(); marcarSeleccion(); }
+        if (!enCampo) map.panTo([p.lat, p.lng]);
+      };
+      const xb = document.createElement('div');
+      const pintarExtras = () => {
+        xb.textContent = '';
+        p.pistasExtra.forEach((x, j) => {
+          const f = document.createElement('div'); f.className = 'xtra';
+          const t = document.createElement('input'); t.maxLength = 300; t.placeholder = 'Texto de la pista adicional ' + (j + 1); t.value = x.texto;
+          t.oninput = () => { x.texto = t.value; validar(); };
+          const c = document.createElement('input'); c.type = 'number'; c.min = 1; c.max = 1000; c.value = x.costo; c.title = 'Costo en puntos';
+          c.oninput = () => { x.costo = Math.min(1000, Math.max(1, Number(c.value) || 1)); };
+          const q = document.createElement('button'); q.textContent = '✕'; q.title = 'Quitar';
+          q.onclick = e => { e.stopPropagation(); p.pistasExtra.splice(j, 1); pintarExtras(); validar(); };
+          f.append(t, c, q); xb.appendChild(f);
+        });
+        if (p.pistasExtra.length < 2) {
+          const m = document.createElement('button'); m.type = 'button'; m.textContent = '+ Pista adicional (cuesta puntos)';
+          m.onclick = e => { e.stopPropagation(); p.pistasExtra.push({ texto: '', costo: Number($('pCosto').value) || 20 }); pintarExtras(); validar(); };
+          xb.appendChild(m);
         }
-        guardar(LS, JSON.stringify({ id: r.equipo, codigo }));
-        equipoId = r.equipo;
-        setUnirse(false);
-      } else if (modoForm === 'editar') {
-        await rpc('editar_equipo', { p_equipo: equipoId, p_nombre: nombreEquipo, p_participantes: participantes, p_version: CONSENT_VERSION });
-        setModoForm('crear');
-      } else {
-        const id = await rpc('crear_equipo', { p_codigo: codigo, p_nombre: nombreEquipo, p_participantes: participantes, p_version: CONSENT_VERSION });
-        guardar(LS, JSON.stringify({ id, codigo }));
-        equipoId = id;
-      }
-      await recuperar();
-    } catch (e) { $('msgEquipo').textContent = e.message; }
-    finally { if (enviando) $('btnEquipo').disabled = false; }
-  };
-  $('nombreEquipo').onkeydown = e => { if (e.key === 'Enter') $('btnEquipo').click(); };
-
-  // Editar: abre el mismo formulario con los datos actuales. Nada lo refresca solo mientras se escribe.
-  $('btnEditar').onclick = () => {
-    if (!ultimoProgreso) return;
-    setUnirse(false);
-    setModoForm('editar');
-    aplicarCampos(ultimoProgreso.campos);
-    pintarConsentimiento();
-    $('nombreEquipo').value = ultimoProgreso.equipo;
-    const ps = ultimoProgreso.participantes || [];
-    (ps.length ? ps : [{}]).forEach(p => agregarParticipante(Object.assign({}, p, { acepto: ps.length > 0 })));
-    $('infoPartida').textContent = 'Editando tu equipo';
-    vista('vistaEquipo');
-  };
-  $('btnCancelarEdicion').onclick = () => { setModoForm('crear'); $('btnUnirse').classList.remove('oculto'); vista('vistaJuego'); };
-
-  // ---------- Paso 3: juego ----------
-  async function recuperar() {
-    const d = await rpc('mi_progreso', { p_equipo: equipoId });
-    if (!d) { borrar(LS); equipoId = null; throw new Error('No encontramos tu equipo. Creá uno nuevo.'); }
-    codigo = d.codigo;
-    ultimoProgreso = d;
-    aplicarModo(d.modo);
-    $('titulo').textContent = d.juego;
-    $('equipo').textContent = 'Equipo: ' + d.equipo + ' · partida ' + d.codigo;
-    $('integrantes').textContent = (d.integrantes && d.integrantes.length) ? 'Integrantes: ' + d.integrantes.join(', ') : '';
-    pintarVisitados(d.visitados || []);
-    inicioMs = Date.parse(d.inicio);
-    offsetMs = Date.parse(d.ahora) - Date.now();            // reloj del servidor
-    terminado = d.terminado;
-    finMs = d.fin ? Date.parse(d.fin) : 0;
-    $('avance').textContent = d.completados + ' de ' + d.total + ' lugares';
-    $('score').textContent = d.score;
-    $('codEq').textContent = d.codigoEquipo || '';
-    desdeMs = Date.parse(d.desdePunto); puntajeCfg = d.puntaje || null;
-    pintarPistasExtra(d);
-    esperando = !d.iniciada;
-    if (esperando) {
-      inicioMs = 0; $('reloj').textContent = '00:00:00';
-      $('pistaTit').textContent = 'Sala de espera';
-      $('pista').textContent = 'El organizador todavía no inició el juego. Mientras tanto pueden sumar más compañeros con el código de equipo. Cuando el organizador inicie, aparece la primera pista y empieza a correr el tiempo.';
-    } else if (terminado) {
-      $('pistaTit').textContent = '¡Felicitaciones!';
-      $('pista').textContent = 'Completaron todos los puntos.';
-    } else {
-      $('pistaTit').textContent = 'Pista del punto ' + (d.completados + 1);
-      $('pista').textContent = d.pista;
-    }
-    $('btnLlegue').disabled = terminado || esperando;
-    $('miniLlegue').disabled = terminado || esperando;
-    $('miniPista').textContent = esperando ? 'Esperando que el organizador inicie el juego...' : terminado ? '¡Felicitaciones! Completaron todos los puntos.' : 'Pista ' + (d.completados + 1) + ': ' + d.pista;
-    $('miniBarra').classList.add('activa');
-    $('detRespaldo').classList.toggle('oculto', terminado || esperando);
-    centrar(d.centro);
-    vista('vistaJuego');
-    cargarRanking();
-    cargarHistorial($('histJuego'));
-  }
-
-  let desdeMs = 0, puntajeCfg = null, esperando = false;
-  function actualizarBonus() {
-    const el = $('bonusInfo');
-    if (!puntajeCfg || terminado || !desdeMs) { el.textContent = ''; return; }
-    const t = (Date.now() + offsetMs - desdeMs) / 1000;
-    const b = Math.round(puntajeCfg.bonusMax * Math.max(0, 1 - t / (puntajeCfg.bonusMinutos * 60)));
-    el.textContent = 'Este lugar vale ' + puntajeCfg.base + ' pts + bonus por velocidad: +' + b + ' ahora (baja con el tiempo).';
-  }
-
-  function pintarPistasExtra(d) {
-    const box = $('pistasExtra'); box.textContent = '';
-    if (d.terminado) return;
-    let ofrecida = false;
-    (d.pistas || []).forEach(p => {
-      const div = document.createElement('div'); div.className = 'pistaExtra';
-      if (p.usada) {
-        const s = document.createElement('small'); s.textContent = 'Pista adicional ' + p.nro + ' (costó ' + p.costo + ' pts)';
-        div.append(s, document.createElement('br'), document.createTextNode(p.texto));
-        box.appendChild(div);
-      } else if (!ofrecida) {
-        ofrecida = true;
-        const b = document.createElement('button'); b.type = 'button';
-        b.textContent = 'Pedir pista adicional ' + p.nro + ' (−' + p.costo + ' pts)';
-        b.onclick = async () => {
-          if (pistaUsando) return;
-          if (!confirm('Esta pista cuesta ' + p.costo + ' puntos. ¿Pedirla?')) return;
-          pistaUsando = true; b.disabled = true;
-          try {
-            const r = await rpc('pedir_pista', { p_equipo: equipoId, p_orden: d.completados + 1, p_nro: p.nro });
-            if (!r.ok) {
-              $('msg').className = 'msg err';
-              $('msg').textContent = r.motivo === 'punto_cambio' ? 'Tu equipo ya avanzó de punto.' : 'No se pudo pedir la pista (' + r.motivo + ').';
-            }
-            await recuperar();
-          } catch (e) { $('msg').className = 'msg err'; $('msg').textContent = 'Error de conexión: ' + e.message; b.disabled = false; }
-          finally { pistaUsando = false; }
-        };
-        div.appendChild(b); box.appendChild(div);
-      }
+      };
+      pintarExtras();
+      li.append(head, ta, rr, xb);
+      ol.appendChild(li);
     });
   }
 
-  async function cargarRanking() {
-    if (!codigo) return;
-    try {
-      const filas = await rpc('ranking', { p_codigo: codigo });
-      const ol = $('ranking'); ol.textContent = '';
-      filas.forEach(f => {
-        const li = document.createElement('li');
-        li.textContent = f.equipo + ' — ' + f.score + ' pts · ' + f.puntos + '/' + f.total + (f.terminado ? ' ✓' : '') + ' · ' + fmtT(f.tiempo_seg);
-        ol.appendChild(li);
-      });
-    } catch (e) { /* el ranking es secundario */ }
-  }
-
-  const BANDAS = {
-    1: 'Muy cerca (a menos de 10 m del lugar). Ajustá un poquito.',
-    2: 'Cerca (entre 10 y 20 m del lugar).',
-    3: 'Lejos (entre 20 y 30 m del lugar).',
-    4: 'Muy lejos (entre 30 y 40 m del lugar).',
-    5: 'Demasiado lejos (a más de 40 m del lugar). Releé la pista.'
-  };
-  async function respuesta(r) {
-    if (r.ok) {
-      $('msg').className = 'msg okm';
-      const extra = (r.puntos != null) ? ' +' + r.puntos + ' pts' + (r.bonus ? ' (bonus ' + r.bonus + ')' : '') + '.' : '';
-      $('msg').textContent = (r.motivo === 'validado_respaldo' ? 'Código correcto.' : (modo === 'remoto' ? '¡Ese es el lugar!' : '¡Llegaron!')) + extra + ' Siguiente pista.';
-      $('codigoResp').value = '';
-      if (modo === 'remoto') limpiarMarca();
-      await recuperar();
-    } else if (r.motivo === 'lejos') {
-      $('msg').className = 'msg err';
-      $('msg').textContent = BANDAS[r.banda] || 'Todavía no es el lugar.';
-    } else if (r.motivo === 'codigo_incorrecto') {
-      $('msg').className = 'msg err'; $('msg').textContent = 'Ese código no es el de este punto.';
-    } else if (r.motivo === 'bloqueado') {
-      $('msg').className = 'msg err'; $('msg').textContent = 'Demasiados códigos incorrectos. Probá de nuevo en ' + Math.ceil((r.segundos || 300) / 60) + ' min, o usá la ubicación.';
-    } else if (r.motivo === 'muy_rapido') {
-      $('msg').className = 'msg err'; $('msg').textContent = 'La ubicación saltó demasiado rápido desde el punto anterior. Esperá unos segundos y volvé a intentar; si el GPS está fallando, usá el código del cartel.';
-    } else if (r.motivo === 'no_iniciada') {
-      $('msg').className = 'msg err'; $('msg').textContent = 'El organizador todavía no inició el juego.';
-      await recuperar();
-    } else if (r.motivo === 'terminado') {
-      await recuperar();
-    } else {
-      $('msg').className = 'msg err'; $('msg').textContent = 'Rechazado: ' + r.motivo;
-    }
-  }
-
-  $('btnLlegue').onclick = async () => {
-    if (!pos) {
-      $('msg').className = 'msg err';
-      $('msg').textContent = modo === 'remoto'
-        ? 'Primero tocá el mapa para marcar dónde creen que está el lugar.'
-        : 'Todavía no hay ubicación. Revisá los permisos del navegador.';
-      return;
-    }
-    $('msg').className = 'msg'; $('msg').textContent = 'Validando...';
-    try {
-      await respuesta(await rpc('validar_llegada', {
-        p_equipo: equipoId, p_lat: pos.lat, p_lng: pos.lng, p_precision: pos.precision }));
-    } catch (e) { $('msg').className = 'msg err'; $('msg').textContent = 'Error de conexión: ' + e.message; }
-  };
-
-  $('btnResp').onclick = async () => {
-    $('msg').className = 'msg'; $('msg').textContent = 'Validando código...';
-    try { await respuesta(await rpc('validar_respaldo', { p_equipo: equipoId, p_codigo: $('codigoResp').value })); }
-    catch (e) { $('msg').className = 'msg err'; $('msg').textContent = 'Error de conexión: ' + e.message; }
-  };
-
-  $('btnSalir').onclick = () => {
-    if (!confirm('¿Salir de la partida?\n\nVas a volver a la pantalla de ingreso. El progreso del equipo queda guardado en el servidor, pero para volver a jugar tendrían que registrar un equipo nuevo.')) return;
-    const cod = codigo;
-    borrar(LS);
-    equipoId = null; ultimoProgreso = null; inicioMs = 0; finMs = 0; terminado = false; partida = null;
-    capaVisitados.clearLayers(); limpiarMarca();
-    $('miniBarra').classList.remove('activa');
-    document.body.classList.remove('mapaGrande'); $('btnMapaGrande').textContent = '⛶ Agrandar mapa';
-    $('reloj').textContent = '00:00:00';
-    $('ranking').textContent = ''; $('histJuego').textContent = ''; $('pistasExtra').textContent = ''; $('visitados').textContent = ''; $('bloqueVisitados').classList.add('oculto');
-    $('msg').textContent = ''; $('codigoResp').value = '';
-    $('listaParts').textContent = ''; $('nombreEquipo').value = '';
-    setModoForm('crear');
-    $('titulo').textContent = 'Búsqueda del tesoro';
-    try { history.replaceState(null, '', location.pathname); } catch (e) {}
-    $('codigoIn').value = cod || ''; $('msgCodigo').textContent = '';
-    vista('vistaCodigo');
-  };
-
-  // ---------- Reloj (hora del servidor) y ranking ----------
-  const pad = n => String(n).padStart(2, '0');
-  setInterval(() => {
-    if (!inicioMs) return;
-    const hasta = (terminado && finMs) ? finMs : Date.now() + offsetMs;
-    const s = Math.max(0, Math.floor((hasta - inicioMs) / 1000));
-    $('reloj').textContent = pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s / 60) % 60) + ':' + pad(s % 60);
-    actualizarBonus();
-  }, 1000);
-  // Compañeros en otras pantallas: si avanzaron o compraron una pista, se actualiza sola esta pantalla
-  setInterval(async () => {
-    if (document.hidden || !equipoId || !ultimoProgreso || pistaUsando) return;
-    if ($('vistaJuego').classList.contains('oculto')) return;
-    try {
-      const d = await rpc('mi_progreso', { p_equipo: equipoId });
-      if (!d || !ultimoProgreso) return;
-      const usadas = x => (x.pistas || []).filter(p => p.usada).length;
-      const cambioSala = d.iniciada !== ultimoProgreso.iniciada || (d.integrantes || []).length !== (ultimoProgreso.integrantes || []).length;
-      if (cambioSala || d.completados !== ultimoProgreso.completados || usadas(d) !== usadas(ultimoProgreso) || d.score !== ultimoProgreso.score) {
-        if (d.iniciada && !ultimoProgreso.iniciada) { $('msg').className = 'msg okm'; $('msg').textContent = '¡El organizador inició el juego! Empieza el tiempo.'; }
-        if (d.completados !== ultimoProgreso.completados) { $('msg').className = 'msg okm'; $('msg').textContent = 'Un compañero del equipo avanzó de punto.'; }
-        await recuperar();
-      }
-    } catch (e) {}
-  }, 4000);
-  setInterval(() => { if (!document.hidden) cargarRanking(); }, 30000);
-
-  // ---------- Ubicación (se apaga con la pantalla para cuidar la batería) ----------
-  function actualizar(lat, lng, precision) {
-    pos = { lat, lng, precision };
-    if (!yo) {
-      yo = L.circleMarker([lat, lng], { radius: 8, color: '#d81b60' }).addTo(map);
-      precisionCirculo = L.circle([lat, lng], { radius: precision || 1, color: '#d81b60', weight: 1, fillOpacity: 0.08 }).addTo(map);
-    }
-    yo.setLatLng([lat, lng]);
-    precisionCirculo.setLatLng([lat, lng]).setRadius(precision || 1);
-    $('estado').textContent = precision
-      ? 'Ubicación lista (precisión ±' + Math.round(precision) + ' m)' + (precision > 40 ? ' — señal débil, salí a un lugar abierto o usá el código' : '')
-      : 'Ubicación simulada';
-  }
   map.on('click', e => {
-    if (modo === 'remoto' || sim.checked) {
-      actualizar(e.latlng.lat, e.latlng.lng, null);
-      if (modo === 'remoto' && !terminado) { $('msg').className = 'msg'; $('msg').textContent = 'Lugar marcado. Si creen que es ese, tocá «Confirmar este lugar».'; }
-    }
+    if (modo !== 'crear') return;
+    if (map.getZoom() < 15) { $('msgMapa').textContent = 'Acercá el mapa (zoom 15 o más) para colocar el punto con precisión.'; return; }
+    $('msgMapa').textContent = '';
+    agregarPunto(e.latlng.lat, e.latlng.lng);
   });
 
-  let watchId = null;
-  function mirar() {
-    if (modo === 'remoto' || watchId !== null || !navigator.geolocation) return;
-    watchId = navigator.geolocation.watchPosition(
-      p => { if (!sim.checked) actualizar(p.coords.latitude, p.coords.longitude, p.coords.accuracy); },
-      err => { $('estado').textContent = 'No se pudo obtener la ubicación (' + err.message + '). Revisá los permisos.'; },
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+  function validar() {
+    const ok = $('nombre').value.trim().length >= 2 && $('password').value.length >= 6 &&
+               puntos.length >= 1 && puntos.every(p => p.pista.trim().length > 0 && p.pistasExtra.every(x => x.texto.trim().length > 0));
+    $('btnCrear').disabled = !ok;
+    $('msgCrear').textContent = '';
   }
-  function dejarDeMirar() { if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; } }
-  document.addEventListener('visibilitychange', () => { document.hidden ? dejarDeMirar() : mirar(); });
-  if (!navigator.geolocation) $('estado').textContent = 'Este navegador no soporta geolocalización';
-  // El GPS se pide recién cuando se sabe que la partida es presencial (ver aplicarModo).
+  $('nombre').oninput = validar; $('password').oninput = validar;
 
-  // ---------- Arranque ----------
-  (async () => {
-    let guardado = null;
-    try { guardado = JSON.parse(leer(LS)); } catch (e) {}
-    const pedido = (params.get('p') || '').trim().toUpperCase();
-    if (guardado && guardado.id && (!pedido || pedido === guardado.codigo)) {
-      equipoId = guardado.id;
-      try { await recuperar(); return; }
-      catch (e) { /* si falla, sigue con el flujo normal */ }
+  // ---------- Crear partida ----------
+  $('btnCrear').onclick = async () => {
+    $('btnCrear').disabled = true; $('msgCrear').textContent = 'Creando...';
+    const lat = puntos.reduce((s, p) => s + p.lat, 0) / puntos.length;
+    const lng = puntos.reduce((s, p) => s + p.lng, 0) / puntos.length;
+    try {
+      const r = await rpc('crear_partida', {
+        p_nombre: $('nombre').value, p_password: $('password').value, p_lat: lat, p_lng: lng,
+        p_modo: $('modoJuego').value, p_campos: camposElegidos(),
+        p_puntaje: { base: $('pBase').value, bonusMax: $('pBonus').value, bonusMinutos: $('pMin').value, costoPista: $('pCosto').value },
+        p_puntos: puntos.map(p => ({ tipo: p.tipo, pista: p.pista,
+          lat: Number(p.lat.toFixed(6)), lng: Number(p.lng.toFixed(6)), radioM: p.radioM,
+          pistasExtra: p.pistasExtra.map(x => ({ texto: x.texto, costo: x.costo })) })) });
+      guardar(SESION, JSON.stringify({ codigo: r.codigo, password: $('password').value }));
+      await cargarPanel();
+    } catch (e) {
+      $('msgCrear').textContent = e.message;
+      validar(); $('msgCrear').textContent = e.message;
     }
-    abrirPartida(pedido);
-  })();
+  };
+
+  // ---------- Entrar a una partida ----------
+  $('btnEntrar').onclick = async () => {
+    const codigo = $('codigoEntrar').value.trim().toUpperCase();
+    guardar(SESION, JSON.stringify({ codigo, password: $('passEntrar').value }));
+    $('msgEntrar').textContent = 'Entrando...';
+    try { await cargarPanel(); }
+    catch (e) {
+      borrar(SESION);
+      $('msgEntrar').textContent = e.message === 'credenciales_invalidas'
+        ? 'Código o contraseña incorrectos.'
+        : e.message === 'demasiados_intentos'
+        ? 'Demasiados intentos incorrectos. Esperá 5 minutos e intentá de nuevo.'
+        : 'No se pudo entrar: ' + e.message;
+    }
+  };
+  $('passEntrar').onkeydown = e => { if (e.key === 'Enter') $('btnEntrar').click(); };
+
+  // ---------- Panel ----------
+  function sesion() { try { return JSON.parse(leer(SESION)); } catch (e) { return null; } }
+
+  async function cargarPanel() {
+    const s = sesion();
+    if (!s) throw new Error('sin sesión');
+    const d = await rpc('admin_partida', { p_codigo: s.codigo, p_password: s.password });
+    dibujarPanel(d);
+  }
+
+  let marcasPanel = [];     // {orden, pista, marker, circle}: los puntos dibujados en el mapa del panel
+  let selEquipo = null;     // id del equipo cuyo avance se resalta en el mapa (null = todos)
+  let ahoraOff = 0;
+  const pad2 = n => String(n).padStart(2, '0');
+  const fmtT = s => { s = Math.max(0, Math.round(s)); return pad2(Math.floor(s / 3600)) + ':' + pad2(Math.floor(s / 60) % 60) + ':' + pad2(s % 60); };
+  setInterval(() => document.querySelectorAll('[data-ini]').forEach(el => {
+    el.textContent = fmtT((Date.now() + ahoraOff - Number(el.dataset.ini)) / 1000);
+  }), 1000);
+  const hora = iso => new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  const nombreTipo = p => { const t = plant(p.tipo); return t ? t.nombre : p.tipo; };
+
+  // Colorea en verde los puntos visitados: por el equipo elegido o, si no hay, por cualquier equipo.
+  function pintarPanel(d) {
+    const cuenta = new Map();
+    d.equipos.forEach(e => e.visitados.forEach(v => cuenta.set(v.orden, (cuenta.get(v.orden) || 0) + 1)));
+    const eqSel = d.equipos.find(e => e.id === selEquipo) || null;
+    if (!eqSel) selEquipo = null;
+    marcasPanel.forEach(m => {
+      const n = cuenta.get(m.orden) || 0;
+      const hecho = eqSel ? eqSel.visitados.some(v => v.orden === m.orden) : n > 0;
+      m.marker.setIcon(icono(m.orden, hecho ? 'ok' : false));
+      m.circle.setStyle({ color: hecho ? '#0a7a2f' : '#1565c0' });
+      const texto = m.orden + '. ' + m.pista + ' — ' + n + '/' + d.equipos.length + ' equipos' + (hecho ? ' ✓' : '');
+      m.circle.setTooltipContent(tip(texto)); m.marker.setTooltipContent(tip(texto));
+    });
+    $('leyenda').textContent = !d.equipos.length ? ''
+      : eqSel ? 'Verde ✓: puntos que encontró «' + eqSel.nombre + '». Tocá el equipo de nuevo para ver todos.'
+      : 'Verde ✓: puntos que ya encontró al menos un equipo. Tocá un equipo para ver sus participantes y solo sus puntos.';
+  }
+
+  function dibujarPanel(d) {
+    if (modo !== 'panel') {
+      modo = 'panel';
+      capa.clearLayers(); puntos = []; sel = -1; marcasPanel = []; selEquipo = null;
+      ['vistaCrear', 'vistaEntrar'].forEach(id => $(id).classList.add('oculto'));
+      $('tabs').classList.add('oculto');
+      $('vistaPanel').classList.remove('oculto');
+      d.puntos.forEach(p => {
+        const circle = L.circle([p.lat, p.lng], { radius: p.radioM, color: '#1565c0', fillOpacity: 0.15 }).addTo(capa);
+        const marker = L.marker([p.lat, p.lng], { icon: icono(p.orden, false) }).addTo(capa);
+        circle.bindTooltip(tip(p.orden + '. ' + p.pista)); marker.bindTooltip(tip(p.orden + '. ' + p.pista));
+        marcasPanel.push({ orden: p.orden, pista: p.pista, marker, circle });
+      });
+      const b = L.featureGroup(capa.getLayers()).getBounds();
+      if (b.isValid()) map.fitBounds(b.pad(0.4), { maxZoom: 19 });
+    }
+    $('panelNombre').textContent = d.nombre;
+    $('panelModo').textContent = d.modo === 'remoto'
+      ? 'Modo: a distancia. Los jugadores marcan cada lugar en el mapa.'
+      : 'Modo: presencial. Los jugadores validan con el GPS.';
+    $('notaCodigos').textContent = d.modo === 'remoto'
+      ? 'En el modo a distancia los códigos de respaldo no se usan; quedan acá solo por si los necesitás.'
+      : 'Cada punto tiene un código manual por si falla el GPS. Escribilo en un cartel en ese lugar. Solo vos lo ves.';
+    $('panelCodigo').textContent = d.codigo;
+    const ps = d.puntaje || {};
+    $('puntajeTxt').textContent = 'Puntaje: ' + ps.base + ' pts por lugar + bonus de hasta ' + ps.bonusMax + ' (llega a 0 a los ' + ps.bonusMinutos + ' min). Pista adicional por defecto: ' + ps.costoPista + ' pts.';
+    ahoraOff = Date.parse(d.ahora) - Date.now();
+    const hl = $('histPanel'); hl.textContent = '';
+    if (!d.historial.length) { const li = document.createElement('li'); li.style.listStyle = 'none'; li.textContent = 'Todavía no terminó ningún equipo.'; hl.appendChild(li); }
+    d.historial.forEach(h => {
+      const li = document.createElement('li');
+      li.append(h.equipo + ' — ' + h.score + ' pts — ' + fmtT(h.tiempoSeg));
+      const sub = document.createElement('div'); sub.className = 'mut';
+      sub.textContent = (h.integrantes ? h.integrantes + ' · ' : '') + 'Jugaron el ' +
+        new Date(h.inicio || h.fecha).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      li.appendChild(sub); hl.appendChild(li);
+    });
+    $('estadoJuego').textContent = d.iniciada
+      ? 'En juego desde las ' + hora(d.iniciadaEn) + '.'
+      : 'En sala de espera: el tiempo no corre. ' + d.equipos.length + ' equipo(s) registrado(s). Cuando estén todos, iniciá el juego.';
+    $('btnIniciar').classList.toggle('oculto', !!d.iniciada);
+    $('panelLink').value = new URL('../?p=' + d.codigo, location.href).href;
+
+    const eq = $('equipos'); eq.textContent = '';
+    if (!d.equipos.length) { eq.textContent = 'Todavía no hay equipos.'; eq.className = 'mut'; }
+    else {
+      eq.className = '';
+      d.equipos.forEach((e, i) => {
+        const abierto = e.id === selEquipo;
+        const caja = document.createElement('div');
+        const fila = document.createElement('div'); fila.className = 'equipo' + (abierto ? ' sel' : '');
+        fila.tabIndex = 0; fila.setAttribute('role', 'button'); fila.setAttribute('aria-expanded', String(abierto));
+        const a = document.createElement('span'); a.textContent = (i + 1) + '. ' + e.nombre;
+        const b = document.createElement('span');
+        b.textContent = e.score + ' pts · ' + e.puntos + '/' + d.puntos.length + ' · ';
+        const tm = document.createElement('span');
+        if (!e.inicio) tm.textContent = '⏳ en espera';
+        else if (e.terminado) tm.textContent = fmtT((Date.parse(e.fin) - Date.parse(e.inicio)) / 1000) + ' ✓';
+        else { tm.dataset.ini = String(Date.parse(e.inicio)); tm.textContent = fmtT((Date.now() + ahoraOff - Date.parse(e.inicio)) / 1000); }
+        b.appendChild(tm);
+        if (e.pistasUsadas) b.append(' · ' + e.pistasUsadas + ' pista' + (e.pistasUsadas > 1 ? 's' : ''));
+        if (e.usosRespaldo) b.append(' · ' + e.usosRespaldo + ' con código');
+        fila.append(a, b);
+        const alternar = () => { selEquipo = abierto ? null : e.id; dibujarPanel(d); };
+        fila.onclick = alternar;
+        fila.onkeydown = ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); alternar(); } };
+        caja.appendChild(fila);
+
+        if (abierto) {
+          const det = document.createElement('div'); det.className = 'eqDet';
+          const cu = document.createElement('div'); cu.className = 'mut'; cu.append('Código de equipo: ');
+          const cs = document.createElement('span'); cs.className = 'codUnion'; cs.textContent = e.codigoUnion; cu.appendChild(cs);
+          det.appendChild(cu);
+          const t1 = document.createElement('div'); t1.className = 'mut';
+          t1.textContent = 'Participantes (' + e.participantes.length + ')';
+          det.appendChild(t1);
+          if (!e.participantes.length) {
+            const v = document.createElement('div'); v.textContent = 'Sin registro (equipo creado antes de pedir participantes).';
+            det.appendChild(v);
+          } else {
+            const ul = document.createElement('ul');
+            e.participantes.forEach(p => {
+              const li = document.createElement('li');
+              const extra = [];
+              if (p.edad != null) extra.push(p.edad + (p.edad === 1 ? ' año' : ' años'));
+              if (p.telefono) extra.push('Tel. ' + p.telefono);
+              if (p.instagram) extra.push('@' + p.instagram); else if (p.sinInstagram) extra.push('sin Instagram');
+              li.textContent = [p.apellido, p.nombre].filter(Boolean).join(', ') + (extra.length ? ' — ' + extra.join(' · ') : '');
+              if (p.menor) {
+                const tu = document.createElement('div'); tu.className = 'tutorTxt';
+                tu.textContent = 'Menor. Autoriza: ' + (p.tutorNombre || '—') + (p.tutorTelefono ? ' (tel. ' + p.tutorTelefono + ')' : '');
+                li.appendChild(tu);
+              }
+              ul.appendChild(li);
+            });
+            det.appendChild(ul);
+          }
+          const t2 = document.createElement('div'); t2.className = 'mut';
+          t2.textContent = 'Puntos encontrados (' + e.visitados.length + '/' + d.puntos.length + ')';
+          det.appendChild(t2);
+          if (!e.visitados.length) {
+            const v = document.createElement('div'); v.textContent = 'Todavía ninguno.'; det.appendChild(v);
+          } else {
+            const ul = document.createElement('ul');
+            e.visitados.forEach(v => {
+              const p = d.puntos.find(x => x.orden === v.orden);
+              const li = document.createElement('li');
+              li.textContent = '✓ ' + v.orden + '. ' + (p ? nombreTipo(p) : '') + ' — ' + hora(v.creado) + ' · +' + v.puntos + ' pts' + (v.bonus ? ' (bonus ' + v.bonus + ')' : '') + (v.respaldo ? ' (con código)' : '');
+              ul.appendChild(li);
+            });
+            det.appendChild(ul);
+          }
+          caja.appendChild(det);
+        }
+        eq.appendChild(caja);
+      });
+    }
+    pintarPanel(d);
+
+    const ol = $('listaPanel'); ol.textContent = '';
+    d.puntos.forEach(p => {
+      const li = document.createElement('li'); li.className = 'pt';
+      const l1 = document.createElement('div');
+      const n = document.createElement('b'); n.textContent = p.orden + '. ' + nombreTipo(p) + ' — código: ';
+      const c = document.createElement('span'); c.className = 'resp'; c.textContent = p.respaldo;
+      l1.append(n, c);
+      const l2 = document.createElement('div'); l2.className = 'mut'; l2.textContent = p.pista;
+      const cant = d.equipos.filter(e => e.visitados.some(v => v.orden === p.orden)).length;
+      const l3 = document.createElement('div'); l3.className = 'mut';
+      l3.textContent = (cant ? '✓ ' : '') + 'Encontrado por ' + cant + ' de ' + d.equipos.length + ' equipos';
+      li.append(l1, l2, l3);
+      (p.pistasExtra || []).forEach(x => { const l4 = document.createElement('div'); l4.className = 'mut'; l4.textContent = 'Pista adicional ' + x.nro + ' (−' + x.costo + ' pts): ' + x.texto; li.appendChild(l4); });
+      li.onclick = () => map.panTo([p.lat, p.lng]);
+      ol.appendChild(li);
+    });
+  }
+
+  $('btnActualizar').onclick = async () => {
+    try { await cargarPanel(); $('msgPanel').textContent = ''; }
+    catch (e) { $('msgPanel').textContent = 'No se pudo actualizar: ' + e.message; }
+  };
+  $('btnReiniciar').onclick = async () => {
+    if (!confirm('¿Reiniciar la partida? Se borran TODOS los equipos y su progreso. El juego y los puntos se conservan.')) return;
+    const s = sesion();
+    try {
+      await rpc('admin_reiniciar', { p_codigo: s.codigo, p_password: s.password });
+      $('msgPanel').textContent = 'Partida reiniciada: vuelve a la sala de espera (la tabla histórica se conserva).'; $('msgPanel').className = 'msg okm';
+      await cargarPanel();
+    } catch (e) { $('msgPanel').textContent = e.message; $('msgPanel').className = 'msg err'; }
+  };
+  $('btnIniciar').onclick = async () => {
+    if (!confirm('¿Iniciar el juego ahora? Les aparece la primera pista a todos los equipos y empieza a correr el tiempo.')) return;
+    const s = sesion();
+    try { await rpc('admin_iniciar', { p_codigo: s.codigo, p_password: s.password }); $('msgIniciar').textContent = ''; await cargarPanel(); }
+    catch (e) { $('msgIniciar').className = 'msg err'; $('msgIniciar').textContent = e.message; }
+  };
+  $('btnCopiar').onclick = async () => {
+    try { await navigator.clipboard.writeText($('panelLink').value); $('msgCopiar').textContent = 'Link copiado.'; }
+    catch (e) { $('panelLink').select(); $('msgCopiar').textContent = 'Copialo a mano (Ctrl+C).'; }
+  };
+  $('btnImprimir').onclick = () => window.print();
+  $('btnSalir').onclick = () => { borrar(SESION); location.reload(); };
+
+  setInterval(() => { if (modo === 'panel' && !document.hidden) cargarPanel().catch(() => {}); }, 8000);
+
+  // ---------- Pestañas ----------
+  function pestaña(cual) {
+    $('tabCrear').classList.toggle('on', cual === 'crear');
+    $('tabEntrar').classList.toggle('on', cual === 'entrar');
+    $('vistaCrear').classList.toggle('oculto', cual !== 'crear');
+    $('vistaEntrar').classList.toggle('oculto', cual !== 'entrar');
+  }
+  $('tabCrear').onclick = () => pestaña('crear');
+  $('tabEntrar').onclick = () => pestaña('entrar');
+
+  // Si ya había una sesión abierta en esta pestaña, entra directo al panel.
+  if (sesion()) cargarPanel().catch(() => borrar(SESION));
 }
 </script>
 </body>
