@@ -19,6 +19,8 @@ Entrega final: viernes 23/10/2026.
 - | Yaco Yajia | Tester |
 
 
+
+ 
 - **Universidad:** Universidad del Salvador (USAL)
 - **Facultad:** de Ingeniería
 - **Materia:** Paradigmas de Programación
