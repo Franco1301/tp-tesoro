@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Datos de participantes</title>
+<style>
+  :root { --bg:#f6f4ee; --fg:#1d2a22; --acc:#1f6f4a; --mut:#5d6b62; --card:#fff; --err:#b3261e; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#14201a; --fg:#e8efe9; --acc:#6fcf9b; --mut:#9fb0a5; --card:#1c2b23; --err:#ff8a80; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.4 system-ui,sans-serif; }
+  main { max-width:900px; margin:0 auto; padding:16px; }
+  input, button { font:inherit; padding:10px; margin:4px 0; border-radius:8px; border:1px solid var(--mut); background:var(--card); color:var(--fg); }
+  button { cursor:pointer; background:var(--acc); color:#fff; border:0; } button.sec { background:transparent; color:var(--acc); border:1px solid var(--acc); }
+  button.peligro { background:var(--err); }
+  .oculto { display:none; } .err { color:var(--err); min-height:1.2em; } .mut { color:var(--mut); font-size:14px; }
+  table { border-collapse:collapse; width:100%; font-size:14px; } th, td { border-bottom:1px solid var(--mut); padding:6px; text-align:left; vertical-align:top; }
+  .menor { font-weight:700; color:var(--err); }
+  .aviso { background:var(--card); border-left:4px solid var(--err); padding:8px 12px; margin:10px 0; }
+  @media print { body * { visibility:hidden; } body::before { content:"Los datos personales no se imprimen."; visibility:visible; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Datos de participantes</h1>
+  <div id="vLogin">
+    <p class="mut">Solo para quien organiza la partida. Entrá con el código y la contraseña de la partida.</p>
+    <input id="cod" placeholder="Código de partida" maxlength="12" autocomplete="off">
+    <input id="pw" type="password" placeholder="Contraseña" autocomplete="current-password">
+    <button id="btnEntrar">Ver datos</button>
+    <div class="err" id="msgLogin"></div>
+  </div>
+  <div id="vDatos" class="oculto">
+    <div class="aviso">Estos son datos personales protegidos por la Ley 25.326. Usalos solo para esta actividad, no los compartas ni los publiques, y borralos cuando termine.</div>
+    <div class="mut" id="resumen"></div>
+    <button id="btnCsv" class="sec">Descargar CSV</button>
+    <button id="btnBorrar" class="peligro">Borrar datos personales ahora</button>
+    <button id="btnSalir" class="sec">Salir</button>
+    <div class="err" id="msgDatos"></div>
+    <div id="tablas"></div>
+  </div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let SRV, cred = null, ultimo = null;
+
+fetch('../config.json').then(r => r.json()).then(c => { SRV = c.servidor; })
+  .catch(e => { $('msgLogin').textContent = 'No se pudo leer config.json: ' + e.message; });
+
+async function rpc(nombre, args) {
+  const r = await fetch(SRV.url + '/rest/v1/rpc/' + nombre, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SRV.clave }, body: JSON.stringify(args) });
+  const t = await r.text(); let j = null; try { j = JSON.parse(t); } catch (_) {}
+  if (!r.ok) throw new Error((j && (j.message || j.hint)) || t || ('HTTP ' + r.status));
+  if (j && !Array.isArray(j) && typeof j.error === 'string') throw new Error(j.error);
+  return j;
+}
+function td(tr, texto, cls) { const c = document.createElement('td'); c.textContent = texto == null ? '' : String(texto); if (cls) c.className = cls; tr.appendChild(c); }
+
+function pintar(d) {
+  ultimo = d;
+  const cont = $('tablas'); cont.textContent = '';
+  let total = 0, menores = 0;
+  (d.equipos || []).forEach(eq => {
+    const h = document.createElement('h3'); h.textContent = eq.nombre; cont.appendChild(h);
+    const t = document.createElement('table');
+    const th = document.createElement('tr');
+    ['Nombre', 'Edad', 'Teléfono', 'Instagram', 'Tutor', 'Consentimiento', 'Se borra'].forEach(x => { const c = document.createElement('th'); c.textContent = x; th.appendChild(c); });
+    t.appendChild(th);
+    (eq.participantes || []).forEach(p => {
+      total++; if (p.menor) menores++;
+      const tr = document.createElement('tr');
+      td(tr, [p.nombre, p.apellido].filter(Boolean).join(' ')); td(tr, p.edad + (p.menor ? ' (menor)' : ''), p.menor ? 'menor' : '');
+      td(tr, p.telefono || '—'); td(tr, p.instagram ? '@' + p.instagram : '—');
+      td(tr, p.menor ? (p.tutorNombre + ' · ' + p.tutorTelefono) : '—');
+      td(tr, p.consentimiento ? ('Sí, v' + p.consentimientoVersion + ', ' + new Date(p.consentimientoFecha).toLocaleDateString()) : 'No');
+      td(tr, p.borrarDespues ? new Date(p.borrarDespues).toLocaleDateString() : '—');
+      t.appendChild(tr);
+    });
+    cont.appendChild(t);
+  });
+  $('resumen').textContent = (d.equipos || []).length + ' equipos · ' + total + ' participantes · ' + menores + ' menores';
+}
+
+// Evita que Excel interprete una celda como formula (=, +, -, @, tab, CR).
+function celdaCsv(v) {
+  let s = v == null ? '' : String(v);
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return '"' + s.replace(/"/g, '""') + '"';
+}
+$('btnCsv').onclick = () => {
+  if (!ultimo) return;
+  const filas = [['Equipo', 'Nombre', 'Apellido', 'Edad', 'Telefono', 'Instagram', 'Menor', 'Tutor', 'Tel tutor', 'Autoriza tutor', 'Consentimiento', 'Version texto', 'Fecha consentimiento', 'Se borra']];
+  (ultimo.equipos || []).forEach(eq => (eq.participantes || []).forEach(p => filas.push([
+    eq.nombre, p.nombre, p.apellido, p.edad, p.telefono, p.instagram || '', p.menor ? 'Si' : 'No', p.tutorNombre || '', p.tutorTelefono || '',
+    p.menor ? 'Si' : '', p.consentimiento ? 'Si' : 'No', p.consentimientoVersion || '', p.consentimientoFecha || '', p.borrarDespues || ''])));
+  const csv = '﻿' + filas.map(f => f.map(celdaCsv).join(',')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = 'participantes-' + cred.cod + '.csv'; document.body.appendChild(a); a.click(); a.remove();
+};
+
+async function cargar() {
+  const d = await rpc('admin_partida', { p_codigo: cred.cod, p_password: cred.pw });
+  pintar(d);
+}
+$('btnEntrar').onclick = async () => {
+  $('msgLogin').textContent = '';
+  const cod = $('cod').value.trim().toUpperCase(), pw = $('pw').value;
+  if (!cod || !pw) { $('msgLogin').textContent = 'Completá código y contraseña.'; return; }
+  try {
+    cred = { cod, pw }; await cargar();
+    $('pw').value = ''; $('vLogin').classList.add('oculto'); $('vDatos').classList.remove('oculto');
+  } catch (e) {
+    cred = null;
+    $('msgLogin').textContent = e.message.includes('credenciales_invalidas') ? 'Código o contraseña incorrectos.' : e.message.includes('demasiados_intentos') ? 'Demasiados intentos incorrectos. Esperá 5 minutos.' : 'No se pudo entrar: ' + e.message;
+  }
+};
+$('btnBorrar').onclick = async () => {
+  if (!confirm('Se borran definitivamente los datos personales de TODOS los participantes de esta partida. El ranking y los equipos quedan. ¿Seguro?')) return;
+  try {
+    const r = await rpc('admin_borrar_datos', { p_codigo: cred.cod, p_password: cred.pw });
+    $('msgDatos').textContent = 'Listo: se borraron ' + r.borrados + ' participantes.'; await cargar();
+  } catch (e) { $('msgDatos').textContent = 'No se pudo borrar: ' + e.message; }
+};
+$('btnSalir').onclick = () => { cred = null; ultimo = null; $('tablas').textContent = ''; $('vDatos').classList.add('oculto'); $('vLogin').classList.remove('oculto'); };
+</script>
+</body>
+</html>
