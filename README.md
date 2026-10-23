@@ -11,6 +11,8 @@ Entrega final: viernes 23/10/2026.
 
 ## 1. Grupo
 
+**Integrantes**
+
 - | Franco Parrella | Supervisor |
 - | Candela Alvarez | Desarollo|
 - | Bautista Brambilla | Desarrollo |
