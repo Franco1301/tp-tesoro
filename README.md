@@ -206,10 +206,6 @@ tp-tesoro/
 ├── schema_v4.sql       Registro completo: contacto, consentimiento, tutor, borrado
 ├── schema_v5.sql       Puntaje, pistas, historial, inicio por el organizador, equipos multi-dispositivo, seguridad
 └── README.md
-```
-
-Archivos de versiones anteriores del prototipo (`geocerca.py`, `generar_puntos.py`, `puntos.sql`, `schema.sql`) ya no se usan y pueden borrarse.
-
 ---
 
 ## 9. Análisis de amenazas
@@ -246,54 +242,17 @@ Otros riesgos revisados:
 - **Borrado:** (1) automático, a los **30 días** del registro (campo `borrar_despues`; se purga en cada registro y cada consulta del organizador, sin necesidad de una tarea programada; **si nadie usa la app después de los 30 días, la purga espera a la próxima vez que alguien la use**, así que al terminar la actividad conviene borrar a mano con el botón), y (2) manual con el botón **"Borrar datos personales ahora"**, que borra todos los datos de la partida y deja equipos, ranking y tabla histórica (de esta última solo se quitan los nombres de los integrantes).
 - **Exportación segura:** el CSV del organizador neutraliza celdas que empiezan con `=`, `+`, `-` o `@` para evitar fórmulas maliciosas en Excel.
 
-**Qué falta confirmar con la USAL (no es algo que resuelva el código):**
-
-- Que se puedan pedir teléfono e Instagram para esta actividad y el plazo de 30 días.
-- Cómo se pide y guarda la autorización de menores (hoy es una casilla tildada por quien carga los datos; no hay firma ni verificación de que sea el tutor).
-- Si hace falta inscribir la base en el Registro de la AAIP y quién es el **responsable de la base** (completar el contacto en `config.json`).
-- Las páginas de Supabase y GitHub guardan datos en servidores en el exterior: revisar si corresponde informarlo en el texto de consentimiento.
-
 ---
 
-## 11. Pruebas realizadas
-
-- **Servidor:** las funciones SQL se probaron en un PostgreSQL local: orden de los puntos, repetición, tolerancia por precisión, código de respaldo, contraseña del organizador, reinicio y 10 validaciones simultáneas del mismo punto. También que la clave pública no puede leer ni escribir tablas ni llamar a funciones internas.
-- **Registro y datos personales:** pruebas del SQL de `schema_v4.sql` (registro válido; rechazo por consentimiento faltante, teléfono o Instagram inválido, menor sin tutor o sin autorización, cantidad de participantes fuera de rango, nombre de equipo repetido, falta de versión del texto; que no queden equipos a medias; que ranking, progreso e información de la partida no filtren contacto; que el rol público no lea la tabla; borrado manual y por vencimiento; migración repetida sin pérdida de datos existentes) y **35 pruebas de navegador** (Chromium real contra ese SQL): formulario en celular, bloque de tutor al poner una edad menor a 18, validaciones antes de llamar al servidor, máximo de participantes, nombres con HTML inyectado, panel del organizador, CSV con neutralización de fórmulas, borrado, y partida en modo remoto.
-- **Versión actual (`schema_v5.sql`):** pruebas en un PostgreSQL local (migración sobre v2+v3+v4 ejecutada dos veces, franjas de cercanía, bonus, control de velocidad con tiempos adelantados, pistas con costo y orden, puntaje, tabla histórica y reinicio, inicio por el organizador, unión a equipos, bloqueos de contraseña, de códigos de respaldo y de uniones, que la clave pública no lea tablas ni llame a funciones internas, borrado por vencimiento) y pruebas de navegador automático con tres sesiones: organizador que crea la partida y la inicia, un jugador menor con tutor, otro jugador que se une al mismo equipo desde otra pantalla, sala de espera, sincronización entre pantallas, tabla histórica con integrantes y fecha, y la página de datos.
-- **De punta a punta (versión anterior):** 47 pruebas automáticas con un navegador Chromium real contra ese SQL: crear una partida en Tokio, editar puntos, jugar completa con y sin código de respaldo, recuperar el progreso al recargar, entrar al panel con contraseña correcta e incorrecta, reiniciar, y textos con código malicioso.
-- **Límite de estas pruebas:** el mapa se simuló con un reemplazo de Leaflet y los tiles y la búsqueda de OpenStreetMap con respuestas simuladas, porque el entorno de pruebas no podía descargar Leaflet. **Falta verificar a mano** el dibujo del mapa, el arrastre de marcadores y la búsqueda de lugares, y probar con GPS real en un celular Android (Chrome) y uno iPhone (Safari).
-
-
----
-
-## 12. Limitaciones conocidas y mejoras
-
-- **Modo remoto:** en una partida remota no se verifica que el equipo esté físicamente en el lugar: marcan el lugar en el mapa (con vista satélite) y el servidor compara la marca con el punto. Es una elección del grupo para poder jugar a distancia; **el control de presencia por GPS solo vale en modo presencial**, y el análisis de amenazas de la sección 9 se refiere a ese modo.
-- **Mapa satélite:** el modo remoto usa imágenes satélite de Esri, que no son de OpenStreetMap; hay que revisar sus condiciones de uso y mantener la atribución visible.
-- **Registro:** la autorización de menores es una casilla, sin verificación de identidad; falta la confirmación legal de la USAL (sección 10).
-- No hay desafíos por punto (acertijos, preguntas ni fotos), ni narrativa que se vaya revelando, ni insignias. Hoy la mecánica es: pista por tipo de lugar, orden, tiempo, puntaje con bonus por velocidad, pistas adicionales con costo y tabla histórica.
-- **Tamaño de equipo:** el sistema admite 1 a 3 participantes; confirmar con el docente si la consigna exige otro tamaño.
-- En modo remoto, las franjas de 10 m permiten acercarse al lugar por prueba y error.
-- El control de velocidad no detecta un GPS falso que simule un recorrido realista.
-- No hay modo contrarreloj ni rutas distintas por equipo (opcionales).
-- El ranking solo se actualiza cada 30 s.
-- Un organizador que olvida su contraseña no puede recuperarla: el hash no se puede revertir.
-
----
-
-## 13. Uso de asistentes de IA
-
-> La consigna permite usar IA si se declara para qué y qué se verificó a mano. Completar la parte de verificación.
+## 11. Uso de asistentes de IA
 
 **Para qué se usó:** Claude (Anthropic) se usó para planificar la entrega, escribir el código de las páginas, el SQL del servidor (incluido el registro con consentimiento y el borrado de datos), las pruebas automáticas y este README, y para explicar cómo usar GitHub y Supabase.
 
-**Qué verificó el grupo a mano:** coordenadas tomadas en la plaza con Google Maps; prueba del mapa y el GPS en un celular real; lectura y explicación de cada función SQL; revisión del análisis de amenazas, verificación de código en general, del texto qe leen los suarios de la página, probar todas las funciones. 
-
-Todo el código del repositorio tiene que poder ser explicado por cualquier integrante: el código que el grupo no pueda explicar se evalúa como no entregado.
+**Qué verificó el grupo a mano:** coordenadas tomadas en la plaza con Google Maps; prueba del mapa y el GPS en un celular real; lectura y explicación de cada función SQL; revisión del análisis de amenazas, verificación de código en general, del texto que leen los usuarios de la página, probar todas las funciones. 
 
 ---
 
-## 14. Créditos y licencias
+## 12. Créditos y licencias
 
 - Mapas: © colaboradores de [OpenStreetMap](https://www.openstreetmap.org/copyright). Los tiles y Nominatim se usan con el tráfico bajo de un curso, según su política de uso.
 - [Leaflet](https://leafletjs.com/) (licencia BSD-2).
