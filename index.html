@@ -386,8 +386,11 @@ function iniciar(cfg) {
       if (!filas.length) { const li = document.createElement('li'); li.textContent = 'Todavía no terminó ningún equipo.'; li.style.listStyle = 'none'; ol.appendChild(li); return; }
       filas.forEach(f => {
         const li = document.createElement('li');
-        li.textContent = f.equipo + ' — ' + f.score + ' pts — ' + fmtT(f.tiempoSeg);
-        ol.appendChild(li);
+        li.append(f.equipo + ' — ' + f.score + ' pts — ' + fmtT(f.tiempoSeg));
+        const sub = document.createElement('div'); sub.className = 'mut';
+        sub.textContent = (f.integrantes ? f.integrantes + ' · ' : '') + 'Jugaron el ' +
+          new Date(f.inicio || f.fecha).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        li.appendChild(sub); ol.appendChild(li);
       });
     } catch (e) { /* secundario */ }
   }
@@ -557,25 +560,30 @@ function iniciar(cfg) {
     $('codEq').textContent = d.codigoEquipo || '';
     desdeMs = Date.parse(d.desdePunto); puntajeCfg = d.puntaje || null;
     pintarPistasExtra(d);
-    if (terminado) {
+    esperando = !d.iniciada;
+    if (esperando) {
+      inicioMs = 0; $('reloj').textContent = '00:00:00';
+      $('pistaTit').textContent = 'Sala de espera';
+      $('pista').textContent = 'El organizador todavía no inició el juego. Mientras tanto pueden sumar más compañeros con el código de equipo. Cuando el organizador inicie, aparece la primera pista y empieza a correr el tiempo.';
+    } else if (terminado) {
       $('pistaTit').textContent = '¡Felicitaciones!';
       $('pista').textContent = 'Completaron todos los puntos.';
     } else {
       $('pistaTit').textContent = 'Pista del punto ' + (d.completados + 1);
       $('pista').textContent = d.pista;
     }
-    $('btnLlegue').disabled = terminado;
-    $('miniLlegue').disabled = terminado;
-    $('miniPista').textContent = terminado ? '¡Felicitaciones! Completaron todos los puntos.' : 'Pista ' + (d.completados + 1) + ': ' + d.pista;
+    $('btnLlegue').disabled = terminado || esperando;
+    $('miniLlegue').disabled = terminado || esperando;
+    $('miniPista').textContent = esperando ? 'Esperando que el organizador inicie el juego...' : terminado ? '¡Felicitaciones! Completaron todos los puntos.' : 'Pista ' + (d.completados + 1) + ': ' + d.pista;
     $('miniBarra').classList.add('activa');
-    $('detRespaldo').classList.toggle('oculto', terminado);
+    $('detRespaldo').classList.toggle('oculto', terminado || esperando);
     centrar(d.centro);
     vista('vistaJuego');
     cargarRanking();
     cargarHistorial($('histJuego'));
   }
 
-  let desdeMs = 0, puntajeCfg = null;
+  let desdeMs = 0, puntajeCfg = null, esperando = false;
   function actualizarBonus() {
     const el = $('bonusInfo');
     if (!puntajeCfg || terminado || !desdeMs) { el.textContent = ''; return; }
@@ -654,6 +662,9 @@ function iniciar(cfg) {
       $('msg').className = 'msg err'; $('msg').textContent = 'Demasiados códigos incorrectos. Probá de nuevo en ' + Math.ceil((r.segundos || 300) / 60) + ' min, o usá la ubicación.';
     } else if (r.motivo === 'muy_rapido') {
       $('msg').className = 'msg err'; $('msg').textContent = 'La ubicación saltó demasiado rápido desde el punto anterior. Esperá unos segundos y volvé a intentar; si el GPS está fallando, usá el código del cartel.';
+    } else if (r.motivo === 'no_iniciada') {
+      $('msg').className = 'msg err'; $('msg').textContent = 'El organizador todavía no inició el juego.';
+      await recuperar();
     } else if (r.motivo === 'terminado') {
       await recuperar();
     } else {
@@ -718,12 +729,14 @@ function iniciar(cfg) {
       const d = await rpc('mi_progreso', { p_equipo: equipoId });
       if (!d || !ultimoProgreso) return;
       const usadas = x => (x.pistas || []).filter(p => p.usada).length;
-      if (d.completados !== ultimoProgreso.completados || usadas(d) !== usadas(ultimoProgreso) || d.score !== ultimoProgreso.score) {
+      const cambioSala = d.iniciada !== ultimoProgreso.iniciada || (d.integrantes || []).length !== (ultimoProgreso.integrantes || []).length;
+      if (cambioSala || d.completados !== ultimoProgreso.completados || usadas(d) !== usadas(ultimoProgreso) || d.score !== ultimoProgreso.score) {
+        if (d.iniciada && !ultimoProgreso.iniciada) { $('msg').className = 'msg okm'; $('msg').textContent = '¡El organizador inició el juego! Empieza el tiempo.'; }
         if (d.completados !== ultimoProgreso.completados) { $('msg').className = 'msg okm'; $('msg').textContent = 'Un compañero del equipo avanzó de punto.'; }
         await recuperar();
       }
     } catch (e) {}
-  }, 8000);
+  }, 4000);
   setInterval(() => { if (!document.hidden) cargarRanking(); }, 30000);
 
   // ---------- Ubicación (se apaga con la pantalla para cuidar la batería) ----------
