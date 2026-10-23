@@ -22,6 +22,7 @@
   body.mapaGrande #mapaCaja { position:fixed !important; inset:0; height:auto !important; z-index:3000; }
   .cfgFila { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:4px 0; }
   .cfgFila select { width:auto; }
+  .cfgFila input { width:90px; flex:none; }
   h1 { font-size:19px; margin:0 0 4px; }
   h2 { font-size:15px; margin:16px 0 6px; }
   p.mut, .mut { color:var(--mut); font-size:13px; margin:2px 0 8px; }
@@ -68,6 +69,12 @@
     #mapaCaja, #divisor, .tabs, button, #vistaCrear, #vistaEntrar { display:none !important; }
     #app { display:block; height:auto; } #side { overflow:visible; border:0; }
   }
+  .histBox { background:var(--card,#f4f6f8); border:1px solid var(--line,#d9dce1); border-radius:8px; padding:6px 8px; margin:6px 0; }
+  .histBox ol { margin:4px 0; padding-left:22px; font-size:14px; }
+  .xtra { display:grid; grid-template-columns:1fr 70px 30px; gap:4px; margin-top:4px; }
+  .xtra input { min-width:0; margin:0; }
+  .tutorTxt { color:#b00020; font-size:13px; }
+  .codUnion { font-family:ui-monospace,monospace; font-weight:700; letter-spacing:1px; }
 </style>
 </head>
 <body>
@@ -96,8 +103,15 @@
       <p class="mut" id="notaModo"></p>
 
       <h2>Datos que se piden a los participantes</h2>
-      <p class="mut">Elegí qué datos completa cada participante al entrar (equipos de 1, 2 o 3 personas). El nombre siempre se pide, y todos deben aceptar el uso de sus datos personales.</p>
+      <p class="mut">Elegí qué datos completa cada participante al entrar (equipos de 1, 2 o 3 personas). El nombre y la edad siempre se piden (si alguien es menor de 18 se pide autorización de madre, padre o tutor), y todos deben aceptar el uso de sus datos personales.</p>
       <div id="camposCfg"></div>
+
+      <h2>Puntaje</h2>
+      <p class="mut">Cada lugar da puntos y un bonus por velocidad que baja de a poco hasta 0. Las pistas adicionales descuentan puntos.</p>
+      <div class="cfgFila"><span>Puntos por lugar</span><input id="pBase" type="number" min="1" max="1000" value="100"></div>
+      <div class="cfgFila"><span>Bonus máximo por velocidad</span><input id="pBonus" type="number" min="0" max="1000" value="50"></div>
+      <div class="cfgFila"><span>Minutos hasta que el bonus llega a 0</span><input id="pMin" type="number" min="1" max="120" value="10"></div>
+      <div class="cfgFila"><span>Costo predeterminado de una pista adicional</span><input id="pCosto" type="number" min="1" max="1000" value="20"></div>
 
       <h2>1. Elegí el lugar</h2>
       <div class="fila">
@@ -145,6 +159,10 @@
       </div>
       <div class="msg okm" id="msgCopiar"></div>
 
+      <h2>Tabla histórica</h2>
+      <div class="histBox"><ol id="histPanel"></ol></div>
+      <p class="mut" id="puntajeTxt"></p>
+
       <h2>Equipos y ranking</h2>
       <p class="mut" id="leyenda"></p>
       <div id="equipos"></div>
@@ -158,6 +176,7 @@
       <p class="mut" id="notaCodigos">Cada punto tiene un código manual por si falla el GPS. Escribilo en un cartel en ese lugar. Solo vos lo ves.</p>
       <ol id="listaPanel"></ol>
       <div class="fila" style="margin-top:8px">
+        <a href="datos.html" target="_blank" rel="noopener"><button type="button">Datos personales</button></a>
         <button id="btnImprimir">Imprimir</button>
         <button id="btnSalir">Salir</button>
       </div>
@@ -194,6 +213,7 @@ function iniciar(cfg) {
     });
     const t = await r.json().catch(() => null);
     if (!r.ok) throw new Error((t && (t.message || t.hint)) || ('Error ' + r.status));
+    if (t && !Array.isArray(t) && typeof t.error === 'string') throw new Error(t.error);
     return t;
   }
 
@@ -243,6 +263,8 @@ function iniciar(cfg) {
     ['nombre', 'Nombre', 'req'], ['apellido', 'Apellido', 'req'], ['edad', 'Edad', 'req'],
     ['telefono', 'Teléfono / número', 'off'], ['instagram', 'Instagram', 'off']
   ];
+  if (cfg.costoPistaPorDefecto) $('pCosto').value = cfg.costoPistaPorDefecto;
+  if (cfg.puntaje) { $('pBase').value = cfg.puntaje.base; $('pBonus').value = cfg.puntaje.bonusMax; $('pMin').value = cfg.puntaje.bonusMinutos; }
   const selCampos = {};
   CAMPOS.forEach(([k, etiqueta, def]) => {
     const fila = document.createElement('div'); fila.className = 'cfgFila';
@@ -252,7 +274,8 @@ function iniciar(cfg) {
       const o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o);
     });
     sel.value = def;
-    if (k === 'nombre') { sel.disabled = true; }       // el nombre siempre es obligatorio
+    if (k === 'nombre' || k === 'edad') { sel.disabled = true; }       // la edad siempre se pide (define si hace falta tutor)
+    if (false) {}       // el nombre siempre es obligatorio
     selCampos[k] = sel; fila.append(l, sel); $('camposCfg').appendChild(fila);
   });
   const camposElegidos = () => Object.fromEntries(CAMPOS.map(([k]) => [k, selCampos[k].value]));
@@ -307,7 +330,7 @@ function iniciar(cfg) {
     const tipo = $('tipoNuevo').value;
     const t = plant(tipo);
     const radio = Math.min(100, Math.max(3, Number($('radioNuevo').value) || cfg.radioPorDefectoM || 15));
-    const p = { tipo, pista: t ? t.pista : '', lat, lng, radioM: radio };
+    const p = { tipo, pista: t ? t.pista : '', lat, lng, radioM: radio, pistasExtra: [] };
     p.marker = L.marker([lat, lng], { draggable: true, icon: icono(puntos.length + 1, false) }).addTo(capa);
     p.circle = L.circle([lat, lng], { radius: radio, color: '#1565c0', fillOpacity: 0.15 }).addTo(capa);
     p.marker.on('drag', e => p.circle.setLatLng(e.target.getLatLng()));
@@ -386,7 +409,27 @@ function iniciar(cfg) {
         if (sel !== i) { sel = i; pintarMarcadores(); marcarSeleccion(); }
         if (!enCampo) map.panTo([p.lat, p.lng]);
       };
-      li.append(head, ta, rr);
+      const xb = document.createElement('div');
+      const pintarExtras = () => {
+        xb.textContent = '';
+        p.pistasExtra.forEach((x, j) => {
+          const f = document.createElement('div'); f.className = 'xtra';
+          const t = document.createElement('input'); t.maxLength = 300; t.placeholder = 'Texto de la pista adicional ' + (j + 1); t.value = x.texto;
+          t.oninput = () => { x.texto = t.value; validar(); };
+          const c = document.createElement('input'); c.type = 'number'; c.min = 1; c.max = 1000; c.value = x.costo; c.title = 'Costo en puntos';
+          c.oninput = () => { x.costo = Math.min(1000, Math.max(1, Number(c.value) || 1)); };
+          const q = document.createElement('button'); q.textContent = '✕'; q.title = 'Quitar';
+          q.onclick = e => { e.stopPropagation(); p.pistasExtra.splice(j, 1); pintarExtras(); validar(); };
+          f.append(t, c, q); xb.appendChild(f);
+        });
+        if (p.pistasExtra.length < 2) {
+          const m = document.createElement('button'); m.type = 'button'; m.textContent = '+ Pista adicional (cuesta puntos)';
+          m.onclick = e => { e.stopPropagation(); p.pistasExtra.push({ texto: '', costo: Number($('pCosto').value) || 20 }); pintarExtras(); validar(); };
+          xb.appendChild(m);
+        }
+      };
+      pintarExtras();
+      li.append(head, ta, rr, xb);
       ol.appendChild(li);
     });
   }
@@ -400,7 +443,7 @@ function iniciar(cfg) {
 
   function validar() {
     const ok = $('nombre').value.trim().length >= 2 && $('password').value.length >= 6 &&
-               puntos.length >= 1 && puntos.every(p => p.pista.trim().length > 0);
+               puntos.length >= 1 && puntos.every(p => p.pista.trim().length > 0 && p.pistasExtra.every(x => x.texto.trim().length > 0));
     $('btnCrear').disabled = !ok;
     $('msgCrear').textContent = '';
   }
@@ -415,8 +458,10 @@ function iniciar(cfg) {
       const r = await rpc('crear_partida', {
         p_nombre: $('nombre').value, p_password: $('password').value, p_lat: lat, p_lng: lng,
         p_modo: $('modoJuego').value, p_campos: camposElegidos(),
+        p_puntaje: { base: $('pBase').value, bonusMax: $('pBonus').value, bonusMinutos: $('pMin').value, costoPista: $('pCosto').value },
         p_puntos: puntos.map(p => ({ tipo: p.tipo, pista: p.pista,
-          lat: Number(p.lat.toFixed(6)), lng: Number(p.lng.toFixed(6)), radioM: p.radioM })) });
+          lat: Number(p.lat.toFixed(6)), lng: Number(p.lng.toFixed(6)), radioM: p.radioM,
+          pistasExtra: p.pistasExtra.map(x => ({ texto: x.texto, costo: x.costo })) })) });
       guardar(SESION, JSON.stringify({ codigo: r.codigo, password: $('password').value }));
       await cargarPanel();
     } catch (e) {
@@ -435,6 +480,8 @@ function iniciar(cfg) {
       borrar(SESION);
       $('msgEntrar').textContent = e.message === 'credenciales_invalidas'
         ? 'Código o contraseña incorrectos.'
+        : e.message === 'demasiados_intentos'
+        ? 'Demasiados intentos incorrectos. Esperá 5 minutos e intentá de nuevo.'
         : 'No se pudo entrar: ' + e.message;
     }
   };
@@ -452,6 +499,12 @@ function iniciar(cfg) {
 
   let marcasPanel = [];     // {orden, pista, marker, circle}: los puntos dibujados en el mapa del panel
   let selEquipo = null;     // id del equipo cuyo avance se resalta en el mapa (null = todos)
+  let ahoraOff = 0;
+  const pad2 = n => String(n).padStart(2, '0');
+  const fmtT = s => { s = Math.max(0, Math.round(s)); return pad2(Math.floor(s / 3600)) + ':' + pad2(Math.floor(s / 60) % 60) + ':' + pad2(s % 60); };
+  setInterval(() => document.querySelectorAll('[data-ini]').forEach(el => {
+    el.textContent = fmtT((Date.now() + ahoraOff - Number(el.dataset.ini)) / 1000);
+  }), 1000);
   const hora = iso => new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
   const nombreTipo = p => { const t = plant(p.tipo); return t ? t.nombre : p.tipo; };
 
@@ -498,6 +551,12 @@ function iniciar(cfg) {
       ? 'En el modo a distancia los códigos de respaldo no se usan; quedan acá solo por si los necesitás.'
       : 'Cada punto tiene un código manual por si falla el GPS. Escribilo en un cartel en ese lugar. Solo vos lo ves.';
     $('panelCodigo').textContent = d.codigo;
+    const ps = d.puntaje || {};
+    $('puntajeTxt').textContent = 'Puntaje: ' + ps.base + ' pts por lugar + bonus de hasta ' + ps.bonusMax + ' (llega a 0 a los ' + ps.bonusMinutos + ' min). Pista adicional por defecto: ' + ps.costoPista + ' pts.';
+    ahoraOff = Date.parse(d.ahora) - Date.now();
+    const hl = $('histPanel'); hl.textContent = '';
+    if (!d.historial.length) { const li = document.createElement('li'); li.style.listStyle = 'none'; li.textContent = 'Todavía no terminó ningún equipo.'; hl.appendChild(li); }
+    d.historial.forEach(h => { const li = document.createElement('li'); li.textContent = h.equipo + ' — ' + h.score + ' pts — ' + fmtT(h.tiempoSeg); hl.appendChild(li); });
     $('panelLink').value = new URL('../?p=' + d.codigo, location.href).href;
 
     const eq = $('equipos'); eq.textContent = '';
@@ -511,8 +570,13 @@ function iniciar(cfg) {
         fila.tabIndex = 0; fila.setAttribute('role', 'button'); fila.setAttribute('aria-expanded', String(abierto));
         const a = document.createElement('span'); a.textContent = (i + 1) + '. ' + e.nombre;
         const b = document.createElement('span');
-        b.textContent = e.puntos + '/' + d.puntos.length + ' puntos' +
-          (e.usosRespaldo ? ' · ' + e.usosRespaldo + ' con código' : '');
+        b.textContent = e.score + ' pts · ' + e.puntos + '/' + d.puntos.length + ' · ';
+        const tm = document.createElement('span');
+        if (e.terminado) tm.textContent = fmtT((Date.parse(e.fin) - Date.parse(e.inicio)) / 1000) + ' ✓';
+        else { tm.dataset.ini = String(Date.parse(e.inicio)); tm.textContent = fmtT((Date.now() + ahoraOff - Date.parse(e.inicio)) / 1000); }
+        b.appendChild(tm);
+        if (e.pistasUsadas) b.append(' · ' + e.pistasUsadas + ' pista' + (e.pistasUsadas > 1 ? 's' : ''));
+        if (e.usosRespaldo) b.append(' · ' + e.usosRespaldo + ' con código');
         fila.append(a, b);
         const alternar = () => { selEquipo = abierto ? null : e.id; dibujarPanel(d); };
         fila.onclick = alternar;
@@ -521,6 +585,9 @@ function iniciar(cfg) {
 
         if (abierto) {
           const det = document.createElement('div'); det.className = 'eqDet';
+          const cu = document.createElement('div'); cu.className = 'mut'; cu.append('Código de equipo: ');
+          const cs = document.createElement('span'); cs.className = 'codUnion'; cs.textContent = e.codigoUnion; cu.appendChild(cs);
+          det.appendChild(cu);
           const t1 = document.createElement('div'); t1.className = 'mut';
           t1.textContent = 'Participantes (' + e.participantes.length + ')';
           det.appendChild(t1);
@@ -536,6 +603,11 @@ function iniciar(cfg) {
               if (p.telefono) extra.push('Tel. ' + p.telefono);
               if (p.instagram) extra.push('@' + p.instagram); else if (p.sinInstagram) extra.push('sin Instagram');
               li.textContent = [p.apellido, p.nombre].filter(Boolean).join(', ') + (extra.length ? ' — ' + extra.join(' · ') : '');
+              if (p.menor) {
+                const tu = document.createElement('div'); tu.className = 'tutorTxt';
+                tu.textContent = 'Menor. Autoriza: ' + (p.tutorNombre || '—') + (p.tutorTelefono ? ' (tel. ' + p.tutorTelefono + ')' : '');
+                li.appendChild(tu);
+              }
               ul.appendChild(li);
             });
             det.appendChild(ul);
@@ -550,7 +622,7 @@ function iniciar(cfg) {
             e.visitados.forEach(v => {
               const p = d.puntos.find(x => x.orden === v.orden);
               const li = document.createElement('li');
-              li.textContent = '✓ ' + v.orden + '. ' + (p ? nombreTipo(p) : '') + ' — ' + hora(v.creado) + (v.respaldo ? ' (con código)' : '');
+              li.textContent = '✓ ' + v.orden + '. ' + (p ? nombreTipo(p) : '') + ' — ' + hora(v.creado) + ' · +' + v.puntos + ' pts' + (v.bonus ? ' (bonus ' + v.bonus + ')' : '') + (v.respaldo ? ' (con código)' : '');
               ul.appendChild(li);
             });
             det.appendChild(ul);
@@ -573,7 +645,9 @@ function iniciar(cfg) {
       const cant = d.equipos.filter(e => e.visitados.some(v => v.orden === p.orden)).length;
       const l3 = document.createElement('div'); l3.className = 'mut';
       l3.textContent = (cant ? '✓ ' : '') + 'Encontrado por ' + cant + ' de ' + d.equipos.length + ' equipos';
-      li.append(l1, l2, l3); li.onclick = () => map.panTo([p.lat, p.lng]);
+      li.append(l1, l2, l3);
+      (p.pistasExtra || []).forEach(x => { const l4 = document.createElement('div'); l4.className = 'mut'; l4.textContent = 'Pista adicional ' + x.nro + ' (−' + x.costo + ' pts): ' + x.texto; li.appendChild(l4); });
+      li.onclick = () => map.panTo([p.lat, p.lng]);
       ol.appendChild(li);
     });
   }
@@ -587,7 +661,7 @@ function iniciar(cfg) {
     const s = sesion();
     try {
       await rpc('admin_reiniciar', { p_codigo: s.codigo, p_password: s.password });
-      $('msgPanel').textContent = 'Partida reiniciada.'; $('msgPanel').className = 'msg okm';
+      $('msgPanel').textContent = 'Partida reiniciada (la tabla histórica se conserva).'; $('msgPanel').className = 'msg okm';
       await cargarPanel();
     } catch (e) { $('msgPanel').textContent = e.message; $('msgPanel').className = 'msg err'; }
   };
