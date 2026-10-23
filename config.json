@@ -13,47 +13,62 @@
     {
       "tipo": "estatua",
       "nombre": "Estatua o monumento",
-      "pista": "Un personaje de piedra o de bronce te mira desde su pedestal. Encontralo."
+      "pista": "Una figura inmovil observa desde su pedestal. Encontralo."
     },
     {
       "tipo": "arbol",
       "nombre": "Árbol grande",
-      "pista": "Buscá el árbol más grande y más viejo de la plaza."
+      "pista": "El ser más grande y viejo de la plaza."
     },
     {
       "tipo": "iglesia",
       "nombre": "Frente a la iglesia",
-      "pista": "Parate justo enfrente de la iglesia o capilla más cercana."
+      "pista": "Cerca de un lugar muy concurrido los domingos."
     },
     {
       "tipo": "juegos",
       "nombre": "Juegos de plaza",
-      "pista": "Donde los más chicos se divierten: hamacas, toboganes y calesitas."
+      "pista": "Donde los más chicos se divierten."
     },
     {
       "tipo": "ajedrez",
       "nombre": "Mesas de ajedrez",
-      "pista": "Hay un lugar donde se juegan partidas en silencio. Buscá las mesas con tablero."
+      "pista": "Hay un lugar donde se juega en silencio. "
     },
     {
       "tipo": "banco",
       "nombre": "Banco con vista",
-      "pista": "Un banco desde donde se ve toda la plaza. Sentate un segundo en el mejor."
+      "pista": "El mejor lugar para relajarse, con buena vista."
     },
     {
       "tipo": "mastil",
       "nombre": "Mástil o bandera",
-      "pista": "Mirá hacia arriba: donde flamea la bandera."
+      "pista": "Donde flamea el cielo, el mar y el sol."
     },
     {
       "tipo": "cancha",
       "nombre": "Cancha o patio",
-      "pista": "Buscá una cancha donde siempre hay alguien jugando."
+      "pista": "Donde ruedan las pelotas."
+    },
+    {
+      "tipo": "bebedero",
+      "nombre": "Bebebedero",
+      "pista": "Donde uno puede refrescarse."
+    },
+    {
+      "tipo": "comisaria",
+      "nombre": "Cerca de la comisaria",
+      "pista": "Lugar que nos mantiene seguros."
+    },
+    {
+      "tipo": "biblioteca",
+      "nombre": "Biblioteca popular",
+      "pista": "Lugar para los mas intelectuales"
     },
     {
       "tipo": "kiosco",
       "nombre": "Kiosco o puesto",
-      "pista": "Un puesto donde se compran golosinas, diarios o café."
+      "pista": "El lugar más dulce de todos."
     },
     {
       "tipo": "otro",
