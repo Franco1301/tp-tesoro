@@ -62,17 +62,18 @@
     }
   ],
   "consentimiento": {
-    "version": "1",
+    "version": "2",
     "titulo": "Uso de tus datos personales (Ley 25.326)",
     "parrafos": [
       "Finalidad: identificar a los equipos, poder contactar a los participantes por temas de la actividad y armar el informe académico del trabajo práctico. No se usan para publicidad ni se ceden a terceros.",
       "Quién accede: solo la persona que organiza esta partida. Tus datos no aparecen en el ranking, no se publican y no están en el código del proyecto. Los demás equipos solo ven el nombre del equipo.",
+      "Al terminar el juego, la tabla histórica muestra el nombre del equipo, el puntaje, el tiempo, el día y hora, y los integrantes (nombre y la inicial del apellido). Esos nombres se quitan de la tabla a los 30 días.",
       "Plazo: se borran automáticamente a los 30 días de tu registro, o antes si el organizador los borra al terminar la actividad.",
       "Tus derechos: podés pedir acceso, rectificación o supresión de tus datos en cualquier momento escribiendo al contacto de abajo. Participar es voluntario, pero sin aceptar este uso no se puede completar el registro.",
       "El titular de los datos personales tiene la facultad de ejercer el derecho de acceso a los mismos en forma gratuita a intervalos no inferiores a seis meses (art. 14, inc. 3, Ley 25.326). La Agencia de Acceso a la Información Pública (AAIP) es el órgano de control de la Ley 25.326 y atiende denuncias y reclamos por incumplimientos.",
       "Menores de 18 años: necesitan los datos y la autorización de madre, padre o tutor."
     ],
-    "contacto": "tp.tesoro.grupo@gmail.com"
+    "contacto": "[COMPLETAR: mail del grupo o del organizador]"
   },
   "costoPistaPorDefecto": 20,
   "puntaje": {
