@@ -73,5 +73,11 @@
       "Menores de 18 años: necesitan los datos y la autorización de madre, padre o tutor."
     ],
     "contacto": "[COMPLETAR: mail del grupo o del organizador]"
+  },
+  "costoPistaPorDefecto": 20,
+  "puntaje": {
+    "base": 100,
+    "bonusMax": 50,
+    "bonusMinutos": 10
   }
 }
